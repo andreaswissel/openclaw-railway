@@ -27,5 +27,5 @@ EXPOSE 18789
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:18789/health || exit 1
 
-# Start the gateway
-CMD ["clawdbot", "gateway", "--port", "18789", "--bind", "0.0.0.0"]
+# Start the gateway (allow-unconfigured lets it run before setup)
+CMD ["clawdbot", "gateway", "--port", "18789", "--bind", "0.0.0.0", "--allow-unconfigured"]
