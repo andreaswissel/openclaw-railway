@@ -1,0 +1,6 @@
+[build]
+builder = "dockerfile"
+
+[[mounts]]
+source = "clawdbot_home"
+destination = "/home/clawdbot"
