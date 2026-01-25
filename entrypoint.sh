@@ -23,5 +23,9 @@ echo "Cleaning up stale lock files..."
 rm -f "$HOME/.clawdbot/"*.lock "$HOME/.clawdbot/gateway.pid" 2>/dev/null || true
 rm -f /tmp/clawdbot*.lock 2>/dev/null || true
 
+# Fix any invalid config keys before starting
+echo "Running doctor to fix config issues..."
+clawdbot doctor --fix || true
+
 # Start clawdbot gateway
 exec clawdbot gateway --port 18789 --bind lan --allow-unconfigured
