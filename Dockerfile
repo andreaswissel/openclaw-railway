@@ -1,11 +1,16 @@
 FROM node:22-slim
 
-# Install basic dependencies
+# Install essential dependencies
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     ca-certificates \
     sudo \
+    procps \
+    htop \
+    jq \
+    vim \
+    less \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Clawdbot globally (as root, before user switch)
