@@ -1,4 +1,23 @@
+# Environment
 .env
+.env.*
+
+# Logs
 *.log
+
+# Dependencies
 node_modules/
+bun.lockb
+
+# OS
 .DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Runtime
+/data/

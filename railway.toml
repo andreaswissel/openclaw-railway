@@ -1,6 +1,12 @@
 [build]
 builder = "dockerfile"
 
+[deploy]
+healthcheckPath = "/setup/healthz"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
 [[mounts]]
-source = "clawdbot_home"
-destination = "/home/clawdbot"
+source = "moltbot_data"
+destination = "/data"

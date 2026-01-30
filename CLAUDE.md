@@ -1,261 +1,269 @@
-# Clawdbot Railway Deployment
+# Hardened Moltbot Railway Template
 
-## Project Goal
+## Overview
 
-Build the best Clawdbot Railway template - better than existing options, with proper documentation, as foundation for content creation and Railway referrals.
+Security-first Moltbot deployment for Railway with hardened defaults. Built to compete with existing templates while prioritizing security, proper auth, and Core sync capabilities.
 
-## Current Status
-
-**Phase:** Implementation Ready
-**Auth:** SOLVED - `claude setup-token` provides 1-year tokens
-**Approach:** Build from scratch (not fork), reference Vignesh template
-**Research:** Complete - see `/Users/slayga/Documents/Core/research/clawdbot_railway_deployment.md`
-
----
-
-## Key Decisions (Finalized)
-
-### 1. Build from Source with pnpm
-
-**Why:**
-- npm package historically missing dist files (fixed in v2026.1.14-1 but source is safer)
-- Can pin to specific git refs
-- Need pnpm for `clawdbot update` to work
-
-### 2. Auth via `claude setup-token`
-
-**Why:**
-- Creates 1-YEAR tokens (not 8-hour OAuth)
-- Clawdbot syncs from Claude Code credentials automatically
-- No refresh token complexity
-
-**How:**
-```bash
-# SSH into container, then:
-claude setup-token
-# Follow browser auth, done for a year
-```
-
-### 3. Model ID Format
-
-```
-anthropic/claude-opus-4-5
-```
-- Dashes, not periods
-- Provider prefix required
-- Date suffix optional for pinning
-
-### 4. Wrapper Server Pattern
-
-Required because Railway has no systemd. Wrapper:
-- Runs as PID 1 on port 8080
-- Spawns gateway as subprocess on 18789
-- Can restart gateway without container death
-- Provides /setup UI and /health endpoint
-- Proxies all requests to gateway
-- **Fixes token injection bug** (include token in Control UI links)
+**Runtime:** Bun (wrapper) + Node.js (Moltbot CLI)
+**Key Features:**
+- Non-root container (uid 1001)
+- Token injection fix for Control UI
+- Command execution disabled by default
+- Rate limiting on setup endpoints
+- 1-year auth tokens via `claude setup-token`
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    RAILWAY CONTAINER                     │
-│                                                          │
-│  ┌─────────────────┐      ┌─────────────────────────┐   │
-│  │  Wrapper Server │      │    Clawdbot Gateway     │   │
-│  │   (Port 8080)   │─────▶│     (Port 18789)        │   │
-│  │                 │      │                         │   │
-│  │  - /setup UI    │      │  - Control UI           │   │
-│  │  - /health      │      │  - WebSocket API        │   │
-│  │  - Proxies all  │      │  - Channel handlers     │   │
-│  │  - Subprocess   │      │  - LLM routing          │   │
-│  │    management   │      │                         │   │
-│  └─────────────────┘      └─────────────────────────┘   │
-│                                                          │
-│  Volume: /data                                           │
-│    ├── .clawdbot/     (state, config, auth)             │
-│    └── workspace/     (files created by clawdbot)       │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    RAILWAY CONTAINER                         │
+│                    (oven/bun + node)                         │
+│                                                              │
+│  ┌─────────────────┐      ┌─────────────────────────────┐   │
+│  │  Wrapper Server │      │    Moltbot Gateway          │   │
+│  │   (Bun:8080)    │─────▶│     (Node:18789)            │   │
+│  │                 │      │                             │   │
+│  │  - /setup UI    │      │  - Control UI               │   │
+│  │  - /setup/api/* │      │  - WebSocket API            │   │
+│  │  - Token inject │      │  - Channel handlers         │   │
+│  │  - Rate limit   │      │  - LLM routing              │   │
+│  │  - Proxy        │      │                             │   │
+│  └─────────────────┘      └─────────────────────────────┘   │
+│                                                              │
+│  Volume: /data                                               │
+│    ├── .moltbot/     (state, config, auth)                  │
+│    ├── workspace/    (files created by moltbot)             │
+│    └── core/         (Core sync directory)                  │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Security Model
+
+### Hardened Defaults
+
+| Setting | Default | Why |
+|---------|---------|-----|
+| `nodes.run.enabled` | `false` | Prevent arbitrary command execution |
+| `gateway.auth.mode` | `token` | Require authentication for all gateway access |
+| `gateway.bind` | `loopback` | Only wrapper can reach gateway |
+| `dmPolicy` | `pairing` | Require approval for new DM conversations |
+| `groupPolicy` | `allowlist` | Explicit approval for group chats |
+
+### Trust Ladder
+
+1. **Setup Password** - Access to /setup UI
+2. **Gateway Token** - Access to Control UI and API
+3. **Channel Pairing** - Per-user approval for messaging
+4. **Command Execution** - Disabled by default, allowlist only
+
+### Rate Limiting
+
+- 30 requests per minute on `/setup/*` endpoints
+- Prevents brute-force attacks on setup password
 
 ---
 
 ## Environment Variables
 
+### Required
+
 ```bash
-# Required
-PORT=8080
-SETUP_PASSWORD=<secure-password>
-CLAWDBOT_STATE_DIR=/data/.clawdbot
-CLAWDBOT_WORKSPACE_DIR=/data/workspace
-CLAWDBOT_GATEWAY_TOKEN=<auto-generated-or-set>
+SETUP_PASSWORD=<min-16-chars>  # Protects /setup UI
+```
 
-# Optional
+### Auto-Generated
+
+```bash
+MOLTBOT_GATEWAY_TOKEN=<32-byte-hex>  # Generated if not set, persisted in /data
+```
+
+### Optional
+
+```bash
+# Directories
+MOLTBOT_STATE_DIR=/data/.moltbot
+MOLTBOT_WORKSPACE_DIR=/data/workspace
+MOLTBOT_CORE_DIR=/data/core
+
+# Ports
+MOLTBOT_PUBLIC_PORT=8080
 INTERNAL_GATEWAY_PORT=18789
+
+# Core sync (Phase 2)
+GITHUB_TOKEN=ghp_xxx
+CORE_REPO=slayga/Core
+CORE_BRANCH=main
+CORE_SYNC_INTERVAL_MINUTES=15
 ```
 
 ---
 
-## Files to Create
+## CLI Commands
 
+### Container Access
+
+```bash
+# SSH into Railway container
+railway shell
+
+# Or via Railway CLI
+railway run bash
 ```
-clawdbot-railway/
-├── CLAUDE.md           # This file (AI context)
-├── README.md           # User documentation
-├── Dockerfile          # Multi-stage build from source
-├── railway.toml        # Railway config
-├── package.json        # Wrapper dependencies (express, http-proxy)
-└── src/
-    └── server.js       # Wrapper server
+
+### Auth Setup (1-Year Tokens)
+
+```bash
+# Create long-lived Anthropic token
+claude setup-token
+# Follow browser auth flow, token syncs to Moltbot automatically
 ```
 
----
-
-## Dockerfile Requirements
-
-1. **Build stage:**
-   - Clone clawdbot from source
-   - Install bun (for clawdbot build)
-   - Enable corepack/pnpm
-   - Run `pnpm install --frozen-lockfile`
-   - Run `pnpm build`
-   - Build UI: `pnpm ui:install && pnpm ui:build`
-
-2. **Runtime stage:**
-   - Node 22
-   - Copy built clawdbot
-   - Install pnpm globally (for updates)
-   - Install Claude Code CLI (for setup-token)
-   - Essential tools: procps, htop, jq, vim, less, curl, git
-   - Copy wrapper server
-   - Set environment defaults
-
----
-
-## Wrapper Server Requirements
-
-Reference: https://github.com/vignesh07/clawdbot-railway-template/blob/main/src/server.js
-
-Must implement:
-1. **Health endpoint:** `GET /health` returns `{"ok": true}`
-2. **Setup UI:** `GET /setup` with password protection
-3. **Gateway management:** Spawn as subprocess, restart capability
-4. **Proxy:** Forward all other requests to gateway on 18789
-5. **WebSocket proxy:** For Control UI real-time updates
-6. **Token injection:** Include `?token=<GATEWAY_TOKEN>` in Control UI links (FIX THE BUG)
-7. **Graceful shutdown:** Handle SIGTERM
-
----
-
-## CLI Commands Reference
+### Moltbot CLI
 
 ```bash
 # Status
-clawdbot status
-clawdbot health
-clawdbot models status
-
-# Auth (THE KEY COMMAND)
-claude setup-token  # 1-year token, clawdbot syncs automatically
-
-# Gateway (internal, wrapper handles this)
-clawdbot gateway run --port 18789 --bind loopback --auth token --token <TOKEN>
+moltbot status
+moltbot health
+moltbot models status
 
 # Config
-clawdbot config get <key>
-clawdbot config set <key> <value>
-clawdbot doctor --fix
+moltbot config get <key>
+moltbot config set <key> <value>
+moltbot doctor --fix
 
-# Plugins
-clawdbot plugins list
-clawdbot plugins enable <id>
+# Channels
+moltbot channels list
+moltbot channels add telegram --bot-token <token>
+moltbot pairing approve telegram <CODE>
 
-# Pairing
-clawdbot pairing approve telegram <CODE>
+# Security
+moltbot security audit
+moltbot config get nodes.run.enabled
 
-# Update (requires pnpm in container)
-clawdbot update
+# Update
+moltbot update
 ```
 
 ---
 
-## Vignesh Template Issues to Fix
+## File Structure
 
-1. **Token injection bug** - Control UI links don't include gateway token
-   - Fix: Append `?token=${GATEWAY_TOKEN}` to `/clawdbot` links
-
-2. **No pnpm** - Can't run `clawdbot update`
-   - Fix: Install pnpm globally in runtime image
-
-3. **Overly complex** - ~400 lines when simpler works
-   - Fix: Streamline to essentials
-
----
-
-## Implementation Phases
-
-### Phase 1: Basic Working Template (NOW)
-- Dockerfile with multi-stage build
-- Minimal wrapper server with token fix
-- /setup, /health, proxy
-- Essential tools
-- Documentation
-
-### Phase 2: Enhanced Features (LATER)
-- Core sync (bidirectional git with Obsidian vault)
-- Thinking partner mode
-- Daily digests
-- Fire detection
-
-### Phase 3: Content & Distribution (LATER)
-- Tutorial blog post
-- Video walkthrough
-- Railway template submission
-- Ongoing content
+```
+moltbot-railway-hardened/
+├── CLAUDE.md                 # This file
+├── README.md                 # User documentation
+├── Dockerfile                # Multi-stage, non-root, Bun + Node
+├── railway.toml              # Railway config
+├── package.json              # Wrapper dependencies
+├── src/
+│   ├── server.js            # Bun wrapper server
+│   └── setup-app.js         # Client-side setup UI
+└── config/
+    └── gateway-defaults.json # Hardened defaults (Phase 3)
+```
 
 ---
 
-## Testing Checklist
+## Key Fixes Over Vignesh Template
 
-Before publishing:
-- [ ] Deploys successfully on Railway
-- [ ] /health returns ok
-- [ ] /setup accessible with password
-- [ ] Can complete onboarding
-- [ ] `claude setup-token` works
-- [ ] Telegram channel connects
-- [ ] Bot responds to messages
-- [ ] Control UI accessible with token
-- [ ] `clawdbot update` works
-- [ ] Gateway restart works (via wrapper)
-- [ ] Volume persists across redeploys
+| Issue | Fix |
+|-------|-----|
+| Token injection bug | Redirect `/moltbot/*` paths to include `?token=` |
+| Runs as root | Non-root `moltbot` user (uid 1001) |
+| No pnpm in runtime | Installed for `moltbot update` |
+| No Claude CLI | Installed for `claude setup-token` |
+| No trustedProxies | Pre-configured for Railway |
+| Command execution open | Disabled by default |
+| Node.js only | Bun wrapper for performance |
+
+---
+
+## Endpoints
+
+### Health
+
+- `GET /setup/healthz` - Health check (no auth)
+
+### Setup UI
+
+- `GET /setup` - Onboarding wizard (Basic auth with SETUP_PASSWORD)
+- `GET /setup/app.js` - Client-side JavaScript
+
+### Setup API
+
+- `GET /setup/api/status` - Configuration status
+- `POST /setup/api/run` - Run onboarding
+- `POST /setup/api/pairing/approve` - Approve DM pairing
+- `POST /setup/api/reset` - Reset configuration
+- `GET /setup/api/debug` - Debug info
+- `GET /setup/export` - Download backup tarball
+
+### Gateway Proxy
+
+- `/moltbot/*` - Proxied to gateway with token injection
+- All other paths - Proxied to gateway
+
+---
+
+## Development
+
+### Local Testing
+
+```bash
+# Install dependencies
+bun install
+
+# Run locally (needs moltbot installed)
+SETUP_PASSWORD=test1234567890123456 bun run src/server.js
+```
+
+### Docker Build
+
+```bash
+docker build -t moltbot-railway-hardened .
+docker run -p 8080:8080 \
+  -e SETUP_PASSWORD=test1234567890123456 \
+  -v moltbot_data:/data \
+  moltbot-railway-hardened
+```
+
+---
+
+## Deployment Checklist
+
+- [ ] Set `SETUP_PASSWORD` in Railway Variables (min 16 chars)
+- [ ] Deploy and verify `/setup/healthz` returns ok
+- [ ] Access `/setup` with password
+- [ ] Select auth provider (recommend: Anthropic token via `claude setup-token`)
+- [ ] Add Telegram bot token if desired
+- [ ] Run onboarding
+- [ ] SSH in and run `claude setup-token` for 1-year auth
+- [ ] Test Telegram pairing
+- [ ] Verify Control UI at `/moltbot`
 
 ---
 
 ## Session Log
 
-### 2025-01-25
+### 2025-01-30
 
-**Research completed:**
-- npm vs source: Build from source (safer)
-- Auth: `claude setup-token` = 1-year tokens (SOLVED)
-- Model IDs: `anthropic/claude-opus-4-5` format
-
-**Tested Vignesh template:**
-- Works but has token injection bug
-- Missing pnpm for updates
-- Good reference, but we'll build cleaner
-
-**Ready to implement our own template.**
+- Implemented hardened template based on plan
+- Multi-stage Dockerfile with Bun runtime
+- Non-root user (uid 1001)
+- Token injection fix for Control UI
+- Rate limiting on /setup/* endpoints
+- Security headers
+- Disabled command execution by default
 
 ---
 
 ## References
 
-- Full Research: `/Users/slayga/Documents/Core/research/clawdbot_railway_deployment.md`
-- Clawdbot Docs: https://docs.clawd.bot/
-- Railway Guide: https://docs.clawd.bot/railway
-- Docker Guide: https://docs.clawd.bot/install/docker
+- Moltbot Docs: https://docs.moltbot.dev/
+- Railway Guide: https://docs.moltbot.dev/railway
+- Docker Guide: https://docs.moltbot.dev/install/docker
 - Vignesh Template: https://github.com/vignesh07/clawdbot-railway-template
