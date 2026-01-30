@@ -104,8 +104,12 @@ COPY config ./config
 # Set ownership
 RUN chown -R openclaw:openclaw /app
 
-# Switch to non-root user
-USER openclaw
+# Copy entrypoint script (runs as root to fix volume permissions, then drops to openclaw)
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# NOTE: We do NOT use USER here because entrypoint needs root to fix volume permissions
+# The entrypoint script drops privileges to openclaw user after setup
 
 # Environment defaults
 ENV OPENCLAW_STATE_DIR=/data/.openclaw
@@ -124,5 +128,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 EXPOSE 8080
 
-# Start wrapper server with Bun
-CMD ["bun", "run", "src/server.js"]
+# Start via entrypoint (fixes permissions, then drops to openclaw user)
+ENTRYPOINT ["/entrypoint.sh"]

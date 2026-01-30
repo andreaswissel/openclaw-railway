@@ -31,20 +31,6 @@ const STATE_DIR = process.env.OPENCLAW_STATE_DIR?.trim() || path.join(os.homedir
 const WORKSPACE_DIR = process.env.OPENCLAW_WORKSPACE_DIR?.trim() || path.join(STATE_DIR, "workspace");
 const CORE_DIR = process.env.OPENCLAW_CORE_DIR?.trim() || path.join("/data", "core");
 
-// =============================================================================
-// Runtime Directory Initialization
-// =============================================================================
-// Railway mounts a fresh volume at /data which overwrites build-time directories.
-// We must create them at startup before anything else runs.
-
-try {
-  fs.mkdirSync(STATE_DIR, { recursive: true, mode: 0o755 });
-  fs.mkdirSync(WORKSPACE_DIR, { recursive: true, mode: 0o755 });
-  fs.mkdirSync(CORE_DIR, { recursive: true, mode: 0o755 });
-  console.log(`[init] Created directories: ${STATE_DIR}, ${WORKSPACE_DIR}, ${CORE_DIR}`);
-} catch (err) {
-  console.error(`[init] Failed to create directories: ${err.message}`);
-}
 
 // Security: Require SETUP_PASSWORD
 const SETUP_PASSWORD = process.env.SETUP_PASSWORD?.trim();
