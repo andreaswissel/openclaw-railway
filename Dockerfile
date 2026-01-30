@@ -87,8 +87,8 @@ RUN chown -R moltbot:moltbot /moltbot
 RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /moltbot/dist/entry.js "$@"' > /usr/local/bin/moltbot \
   && chmod +x /usr/local/bin/moltbot
 
-# Install Claude Code CLI for setup-token (creates 1-year tokens)
-RUN pnpm add -g @anthropic-ai/claude-code
+# Note: Claude Code CLI can be installed manually via SSH if needed:
+#   npm install -g @anthropic-ai/claude-code && claude setup-token
 
 # Set up wrapper application
 WORKDIR /app
