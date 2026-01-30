@@ -1,10 +1,10 @@
-# Hardened Moltbot Railway Template
+# Hardened OpenClaw Railway Template
 
 ## Overview
 
-Security-first Moltbot deployment for Railway with hardened defaults. Built to compete with existing templates while prioritizing security, proper auth, and Core sync capabilities.
+Security-first OpenClaw deployment for Railway with hardened defaults. Built to compete with existing templates while prioritizing security, proper auth, and Core sync capabilities.
 
-**Runtime:** Bun (wrapper) + Node.js (Moltbot CLI)
+**Runtime:** Bun (wrapper) + Node.js (OpenClaw CLI)
 **Key Features:**
 - Non-root container (uid 1001)
 - Token injection fix for Control UI
@@ -22,7 +22,7 @@ Security-first Moltbot deployment for Railway with hardened defaults. Built to c
 │                    (oven/bun + node)                         │
 │                                                              │
 │  ┌─────────────────┐      ┌─────────────────────────────┐   │
-│  │  Wrapper Server │      │    Moltbot Gateway          │   │
+│  │  Wrapper Server │      │    OpenClaw Gateway          │   │
 │  │   (Bun:8080)    │─────▶│     (Node:18789)            │   │
 │  │                 │      │                             │   │
 │  │  - /setup UI    │      │  - Control UI               │   │
@@ -33,8 +33,8 @@ Security-first Moltbot deployment for Railway with hardened defaults. Built to c
 │  └─────────────────┘      └─────────────────────────────┘   │
 │                                                              │
 │  Volume: /data                                               │
-│    ├── .moltbot/     (state, config, auth)                  │
-│    ├── workspace/    (files created by moltbot)             │
+│    ├── .openclaw/     (state, config, auth)                  │
+│    ├── workspace/    (files created by openclaw)             │
 │    └── core/         (Core sync directory)                  │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -78,19 +78,19 @@ SETUP_PASSWORD=<min-16-chars>  # Protects /setup UI
 ### Auto-Generated
 
 ```bash
-MOLTBOT_GATEWAY_TOKEN=<32-byte-hex>  # Generated if not set, persisted in /data
+OPENCLAW_GATEWAY_TOKEN=<32-byte-hex>  # Generated if not set, persisted in /data
 ```
 
 ### Optional
 
 ```bash
 # Directories
-MOLTBOT_STATE_DIR=/data/.moltbot
-MOLTBOT_WORKSPACE_DIR=/data/workspace
-MOLTBOT_CORE_DIR=/data/core
+OPENCLAW_STATE_DIR=/data/.openclaw
+OPENCLAW_WORKSPACE_DIR=/data/workspace
+OPENCLAW_CORE_DIR=/data/core
 
 # Ports
-MOLTBOT_PUBLIC_PORT=8080
+OPENCLAW_PUBLIC_PORT=8080
 INTERNAL_GATEWAY_PORT=18789
 
 # Core sync (Phase 2)
@@ -119,33 +119,33 @@ railway run bash
 ```bash
 # Create long-lived Anthropic token
 claude setup-token
-# Follow browser auth flow, token syncs to Moltbot automatically
+# Follow browser auth flow, token syncs to OpenClaw automatically
 ```
 
-### Moltbot CLI
+### OpenClaw CLI
 
 ```bash
 # Status
-moltbot status
-moltbot health
-moltbot models status
+openclaw status
+openclaw health
+openclaw models status
 
 # Config
-moltbot config get <key>
-moltbot config set <key> <value>
-moltbot doctor --fix
+openclaw config get <key>
+openclaw config set <key> <value>
+openclaw doctor --fix
 
 # Channels
-moltbot channels list
-moltbot channels add telegram --bot-token <token>
-moltbot pairing approve telegram <CODE>
+openclaw channels list
+openclaw channels add telegram --bot-token <token>
+openclaw pairing approve telegram <CODE>
 
 # Security
-moltbot security audit
-moltbot config get nodes.run.enabled
+openclaw security audit
+openclaw config get nodes.run.enabled
 
 # Update
-moltbot update
+openclaw update
 ```
 
 ---
@@ -153,7 +153,7 @@ moltbot update
 ## File Structure
 
 ```
-moltbot-railway-hardened/
+openclaw-railway-hardened/
 ├── CLAUDE.md                 # This file
 ├── README.md                 # User documentation
 ├── Dockerfile                # Multi-stage, non-root, Bun + Node
@@ -172,9 +172,9 @@ moltbot-railway-hardened/
 
 | Issue | Fix |
 |-------|-----|
-| Token injection bug | Redirect `/moltbot/*` paths to include `?token=` |
-| Runs as root | Non-root `moltbot` user (uid 1001) |
-| No pnpm in runtime | Installed for `moltbot update` |
+| Token injection bug | Redirect `/openclaw/*` paths to include `?token=` |
+| Runs as root | Non-root `openclaw` user (uid 1001) |
+| No pnpm in runtime | Installed for `openclaw update` |
 | No Claude CLI | Installed for `claude setup-token` |
 | No trustedProxies | Pre-configured for Railway |
 | Command execution open | Disabled by default |
@@ -204,7 +204,7 @@ moltbot-railway-hardened/
 
 ### Gateway Proxy
 
-- `/moltbot/*` - Proxied to gateway with token injection
+- `/openclaw/*` - Proxied to gateway with token injection
 - All other paths - Proxied to gateway
 
 ---
@@ -217,18 +217,18 @@ moltbot-railway-hardened/
 # Install dependencies
 bun install
 
-# Run locally (needs moltbot installed)
+# Run locally (needs openclaw installed)
 SETUP_PASSWORD=test1234567890123456 bun run src/server.js
 ```
 
 ### Docker Build
 
 ```bash
-docker build -t moltbot-railway-hardened .
+docker build -t openclaw-railway-hardened .
 docker run -p 8080:8080 \
   -e SETUP_PASSWORD=test1234567890123456 \
-  -v moltbot_data:/data \
-  moltbot-railway-hardened
+  -v openclaw_data:/data \
+  openclaw-railway-hardened
 ```
 
 ---
@@ -243,7 +243,7 @@ docker run -p 8080:8080 \
 - [ ] Run onboarding
 - [ ] SSH in and run `claude setup-token` for 1-year auth
 - [ ] Test Telegram pairing
-- [ ] Verify Control UI at `/moltbot`
+- [ ] Verify Control UI at `/openclaw`
 
 ---
 
@@ -275,9 +275,9 @@ CORE_SYNC_INTERVAL_MINUTES=15  # Background sync interval (default: 15, 0 to dis
 4. **Push**: Commits and pushes local changes
 5. **Conflict Resolution**: Accepts remote version on conflicts (preserves remote, logs conflict)
 
-### Usage via Moltbot
+### Usage via OpenClaw
 
-Once Core sync is initialized, Moltbot can:
+Once Core sync is initialized, OpenClaw can:
 - Read notes from `/data/core/`
 - Create/update notes (changes auto-sync)
 - Access The Core as a knowledge base
@@ -304,7 +304,7 @@ Once Core sync is initialized, Moltbot can:
 
 ## References
 
-- Moltbot Docs: https://docs.moltbot.dev/
-- Railway Guide: https://docs.moltbot.dev/railway
-- Docker Guide: https://docs.moltbot.dev/install/docker
+- OpenClaw Docs: https://docs.openclaw.dev/
+- Railway Guide: https://docs.openclaw.dev/railway
+- Docker Guide: https://docs.openclaw.dev/install/docker
 - Vignesh Template: https://github.com/vignesh07/clawdbot-railway-template

@@ -13,7 +13,7 @@ import path from "node:path";
 // Configuration
 // =============================================================================
 
-const CORE_DIR = process.env.MOLTBOT_CORE_DIR?.trim() || "/data/core";
+const CORE_DIR = process.env.OPENCLAW_CORE_DIR?.trim() || "/data/core";
 const SYNC_INTERVAL_MINUTES = Number.parseInt(
   process.env.CORE_SYNC_INTERVAL_MINUTES ?? "15",
   10
@@ -156,8 +156,8 @@ export async function initializeCore(options = {}) {
   );
 
   // Configure git user for commits
-  await runGit(["config", "user.email", "moltbot@railway.app"]);
-  await runGit(["config", "user.name", "Moltbot"]);
+  await runGit(["config", "user.email", "openclaw@railway.app"]);
+  await runGit(["config", "user.name", "OpenClaw"]);
 
   // Set up tracking
   await runGit(["branch", "--set-upstream-to", `origin/${branch}`, branch]);
@@ -200,7 +200,7 @@ export async function syncCore() {
 
     if (hasLocalChanges) {
       // Stash local changes before pulling
-      await runGit(["stash", "push", "-m", "moltbot-sync-stash"]);
+      await runGit(["stash", "push", "-m", "openclaw-sync-stash"]);
 
       if (hasRemoteChanges) {
         // Pull remote changes
@@ -245,7 +245,7 @@ export async function syncCore() {
         await runGit([
           "commit",
           "-m",
-          `Moltbot sync: ${new Date().toISOString()}`,
+          `OpenClaw sync: ${new Date().toISOString()}`,
         ]);
         await runGit(["push", "origin", branch]);
         result.pushed = true;

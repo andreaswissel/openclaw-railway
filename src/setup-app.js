@@ -1,5 +1,5 @@
 // Served at /setup/app.js
-// Client-side JavaScript for the Moltbot setup wizard
+// Client-side JavaScript for the OpenClaw setup wizard
 
 (function () {
   var statusEl = document.getElementById('status');
@@ -132,7 +132,7 @@
   function refreshStatus() {
     setStatus('Loading...');
     return httpJson('/setup/api/status').then(function (j) {
-      var ver = j.moltbotVersion ? (' | ' + j.moltbotVersion) : '';
+      var ver = j.openclawVersion ? (' | ' + j.openclawVersion) : '';
       var securityInfo = '';
 
       if (j.security) {
@@ -143,7 +143,7 @@
         securityInfo = ' | Security: ' + checks.join(', ');
       }
 
-      setStatus((j.configured ? 'Configured - open /moltbot' : 'Not configured - run setup below') + ver + securityInfo);
+      setStatus((j.configured ? 'Configured - open /openclaw' : 'Not configured - run setup below') + ver + securityInfo);
       renderAuth(j.authGroups || []);
 
       // Render Core sync status from main status
@@ -152,7 +152,7 @@
       }
 
       if (j.channelsAddHelp && j.channelsAddHelp.indexOf('telegram') === -1) {
-        logEl.textContent += '\nNote: this moltbot build does not list telegram in `channels add --help`. Telegram auto-add will be skipped.\n';
+        logEl.textContent += '\nNote: this openclaw build does not list telegram in `channels add --help`. Telegram auto-add will be skipped.\n';
       }
 
     }).catch(function (e) {

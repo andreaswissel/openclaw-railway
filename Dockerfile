@@ -1,12 +1,12 @@
 # =============================================================================
-# HARDENED MOLTBOT RAILWAY TEMPLATE
+# HARDENED OPENCLAW RAILWAY TEMPLATE
 # Multi-stage build with non-root user, pnpm, and Claude CLI
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Stage 1: Build Moltbot from source
+# Stage 1: Build OpenClaw from source
 # -----------------------------------------------------------------------------
-FROM node:22-bookworm AS moltbot-build
+FROM node:22-bookworm AS openclaw-build
 
 # Build dependencies
 RUN apt-get update \
@@ -19,28 +19,28 @@ RUN apt-get update \
     g++ \
   && rm -rf /var/lib/apt/lists/*
 
-# Install Bun (moltbot build uses it)
+# Install Bun (openclaw build uses it)
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:${PATH}"
 
 RUN corepack enable
 
-WORKDIR /moltbot
+WORKDIR /openclaw
 
 # Pin to a known ref (tag/branch). Fall back to main if not specified.
-ARG MOLTBOT_GIT_REF=main
-RUN git clone --depth 1 --branch "${MOLTBOT_GIT_REF}" https://github.com/moltbot/moltbot.git .
+ARG OPENCLAW_GIT_REF=main
+RUN git clone --depth 1 --branch "${OPENCLAW_GIT_REF}" https://github.com/openclaw/openclaw.git .
 
 # Patch: relax version requirements for packages that may reference unpublished versions
 RUN set -eux; \
   find ./extensions -name 'package.json' -type f | while read -r f; do \
-    sed -i -E 's/"moltbot"[[:space:]]*:[[:space:]]*">=[^"]+"/"moltbot": "*"/g' "$f"; \
-    sed -i -E 's/"moltbot"[[:space:]]*:[[:space:]]*"workspace:[^"]+"/"moltbot": "*"/g' "$f"; \
+    sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*">=[^"]+"/"openclaw": "*"/g' "$f"; \
+    sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*"workspace:[^"]+"/"openclaw": "*"/g' "$f"; \
   done
 
 RUN pnpm install --no-frozen-lockfile
 RUN pnpm build
-ENV MOLTBOT_PREFER_PNPM=1
+ENV OPENCLAW_PREFER_PNPM=1
 RUN pnpm ui:install && pnpm ui:build
 
 
@@ -64,7 +64,7 @@ RUN apt-get update \
     htop \
   && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js (required for moltbot CLI) and pnpm (required for moltbot update)
+# Install Node.js (required for openclaw CLI) and pnpm (required for openclaw update)
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
   && apt-get install -y nodejs \
   && corepack enable && corepack prepare pnpm@latest --activate \
@@ -72,20 +72,20 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 
 # Create non-root user with specific UID for security
 # Using uid 1001 to avoid conflicts with common system users
-RUN groupadd -g 1001 moltbot \
-  && useradd -u 1001 -g moltbot -m -s /bin/bash moltbot
+RUN groupadd -g 1001 openclaw \
+  && useradd -u 1001 -g openclaw -m -s /bin/bash openclaw
 
 # Create data directory structure
-RUN mkdir -p /data/.moltbot /data/workspace /data/core \
-  && chown -R moltbot:moltbot /data
+RUN mkdir -p /data/.openclaw /data/workspace /data/core \
+  && chown -R openclaw:openclaw /data
 
-# Copy built moltbot from build stage
-COPY --from=moltbot-build /moltbot /moltbot
-RUN chown -R moltbot:moltbot /moltbot
+# Copy built openclaw from build stage
+COPY --from=openclaw-build /openclaw /openclaw
+RUN chown -R openclaw:openclaw /openclaw
 
-# Create moltbot CLI wrapper (uses Node for moltbot itself)
-RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /moltbot/dist/entry.js "$@"' > /usr/local/bin/moltbot \
-  && chmod +x /usr/local/bin/moltbot
+# Create openclaw CLI wrapper (uses Node for openclaw itself)
+RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"' > /usr/local/bin/openclaw \
+  && chmod +x /usr/local/bin/openclaw
 
 # Note: Claude Code CLI can be installed manually via SSH if needed:
 #   npm install -g @anthropic-ai/claude-code && claude setup-token
@@ -102,21 +102,21 @@ COPY src ./src
 COPY config ./config
 
 # Set ownership
-RUN chown -R moltbot:moltbot /app
+RUN chown -R openclaw:openclaw /app
 
 # Switch to non-root user
-USER moltbot
+USER openclaw
 
 # Environment defaults
-ENV MOLTBOT_STATE_DIR=/data/.moltbot
-ENV MOLTBOT_WORKSPACE_DIR=/data/workspace
-ENV MOLTBOT_CORE_DIR=/data/core
-ENV MOLTBOT_PUBLIC_PORT=8080
+ENV OPENCLAW_STATE_DIR=/data/.openclaw
+ENV OPENCLAW_WORKSPACE_DIR=/data/workspace
+ENV OPENCLAW_CORE_DIR=/data/core
+ENV OPENCLAW_PUBLIC_PORT=8080
 ENV PORT=8080
 ENV INTERNAL_GATEWAY_PORT=18789
 
-# Add moltbot user's local bin to PATH (for claude CLI)
-ENV PATH="/home/moltbot/.local/bin:/usr/local/bin:${PATH}"
+# Add openclaw user's local bin to PATH (for claude CLI)
+ENV PATH="/home/openclaw/.local/bin:/usr/local/bin:${PATH}"
 
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

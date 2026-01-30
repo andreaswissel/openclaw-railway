@@ -1,7 +1,7 @@
 /**
  * Security Utilities Module
  *
- * Provides security-related utilities for the Moltbot wrapper:
+ * Provides security-related utilities for the OpenClaw wrapper:
  * - CogSec pattern detection (prompt injection, exfiltration attempts)
  * - Audit logging
  * - Security validation helpers
@@ -14,7 +14,7 @@ import path from "node:path";
 // Audit Logging
 // =============================================================================
 
-const AUDIT_LOG_DIR = process.env.MOLTBOT_STATE_DIR?.trim() || "/data/.moltbot";
+const AUDIT_LOG_DIR = process.env.OPENCLAW_STATE_DIR?.trim() || "/data/.openclaw";
 const AUDIT_LOG_FILE = path.join(AUDIT_LOG_DIR, "audit.log");
 
 /**

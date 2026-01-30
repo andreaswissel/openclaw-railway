@@ -1,6 +1,6 @@
-# Moltbot Railway - Hardened Template
+# OpenClaw Railway - Hardened Template
 
-Security-first Moltbot deployment for Railway with hardened defaults, non-root container, and proper auth handling.
+Security-first OpenClaw deployment for Railway with hardened defaults, non-root container, and proper auth handling.
 
 ## Features
 
@@ -13,7 +13,7 @@ Security-first Moltbot deployment for Railway with hardened defaults, non-root c
 
 ## Quick Deploy
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/moltbot-hardened)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/openclaw-hardened)
 
 Or manually:
 
@@ -40,7 +40,7 @@ Recommended: **Anthropic token via Claude Code CLI**
 1. SSH into container: `railway shell`
 2. Run: `claude setup-token`
 3. Complete browser auth flow
-4. Token automatically syncs to Moltbot
+4. Token automatically syncs to OpenClaw
 
 Alternative: Paste API key directly in setup wizard.
 
@@ -53,7 +53,7 @@ In the setup wizard, add:
 
 ### 4. Complete Onboarding
 
-Click "Run setup" - this configures Moltbot with hardened defaults:
+Click "Run setup" - this configures OpenClaw with hardened defaults:
 - Command execution: **disabled**
 - Gateway auth: **token required**
 - DM policy: **pairing required**
@@ -64,7 +64,7 @@ Message your bot on Telegram/Discord. You'll receive a pairing code.
 
 Use the "Approve pairing" button in the setup wizard, or SSH in and run:
 ```bash
-moltbot pairing approve telegram ABCD1234
+openclaw pairing approve telegram ABCD1234
 ```
 
 ## Environment Variables
@@ -79,9 +79,9 @@ moltbot pairing approve telegram ABCD1234
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MOLTBOT_GATEWAY_TOKEN` | (auto-generated) | Gateway auth token |
-| `MOLTBOT_STATE_DIR` | `/data/.moltbot` | State directory |
-| `MOLTBOT_WORKSPACE_DIR` | `/data/workspace` | Workspace directory |
+| `OPENCLAW_GATEWAY_TOKEN` | (auto-generated) | Gateway auth token |
+| `OPENCLAW_STATE_DIR` | `/data/.openclaw` | State directory |
+| `OPENCLAW_WORKSPACE_DIR` | `/data/workspace` | Workspace directory |
 
 ## Security Model
 
@@ -107,22 +107,22 @@ SSH into container: `railway shell`
 
 ```bash
 # Status
-moltbot status
-moltbot health
+openclaw status
+openclaw health
 
 # Auth (recommended)
 claude setup-token  # Creates 1-year token
 
 # Config
-moltbot config get nodes.run.enabled
-moltbot config set nodes.run.enabled true  # Enable if needed
+openclaw config get nodes.run.enabled
+openclaw config set nodes.run.enabled true  # Enable if needed
 
 # Channels
-moltbot pairing approve telegram CODE
-moltbot channels list
+openclaw pairing approve telegram CODE
+openclaw channels list
 
 # Update
-moltbot update
+openclaw update
 ```
 
 ## Backup & Restore
@@ -138,21 +138,21 @@ https://your-app.railway.app/setup/export
 
 Extract to `/data` volume and restart.
 
-## Updating Moltbot
+## Updating OpenClaw
 
 SSH in and run:
 ```bash
-moltbot update
+openclaw update
 ```
 
-Or redeploy with updated `MOLTBOT_GIT_REF` build arg.
+Or redeploy with updated `OPENCLAW_GIT_REF` build arg.
 
 ## Troubleshooting
 
 ### "Gateway not ready"
 
 1. Check logs: `railway logs`
-2. SSH in and run: `moltbot doctor --fix`
+2. SSH in and run: `openclaw doctor --fix`
 3. Restart service in Railway dashboard
 
 ### "Token invalid"
@@ -163,8 +163,8 @@ Or redeploy with updated `MOLTBOT_GIT_REF` build arg.
 
 ### Bot not responding
 
-1. Check channel is enabled: `moltbot channels list`
-2. Check pairing approved: `moltbot pairing list`
+1. Check channel is enabled: `openclaw channels list`
+2. Check pairing approved: `openclaw pairing list`
 3. Check logs for errors
 
 ## License

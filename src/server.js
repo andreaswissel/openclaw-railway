@@ -1,8 +1,8 @@
 /**
- * Hardened Moltbot Railway Wrapper Server
+ * Hardened OpenClaw Railway Wrapper Server
  *
  * Based on Vignesh's clawdbot-railway-template with key improvements:
- * - Token injection fix for /moltbot/* paths
+ * - Token injection fix for /openclaw/* paths
  * - Rate limiting on /setup/* endpoints
  * - Security headers
  * - SETUP_PASSWORD validation on startup
@@ -26,10 +26,10 @@ import security from "./security.js";
 // Configuration
 // =============================================================================
 
-const PORT = Number.parseInt(process.env.MOLTBOT_PUBLIC_PORT ?? process.env.PORT ?? "8080", 10);
-const STATE_DIR = process.env.MOLTBOT_STATE_DIR?.trim() || path.join(os.homedir(), ".moltbot");
-const WORKSPACE_DIR = process.env.MOLTBOT_WORKSPACE_DIR?.trim() || path.join(STATE_DIR, "workspace");
-const CORE_DIR = process.env.MOLTBOT_CORE_DIR?.trim() || path.join("/data", "core");
+const PORT = Number.parseInt(process.env.OPENCLAW_PUBLIC_PORT ?? process.env.PORT ?? "8080", 10);
+const STATE_DIR = process.env.OPENCLAW_STATE_DIR?.trim() || path.join(os.homedir(), ".openclaw");
+const WORKSPACE_DIR = process.env.OPENCLAW_WORKSPACE_DIR?.trim() || path.join(STATE_DIR, "workspace");
+const CORE_DIR = process.env.OPENCLAW_CORE_DIR?.trim() || path.join("/data", "core");
 
 // Security: Require SETUP_PASSWORD
 const SETUP_PASSWORD = process.env.SETUP_PASSWORD?.trim();
@@ -44,7 +44,7 @@ const RATE_LIMIT_MAX_REQUESTS = 30;
 // =============================================================================
 
 function resolveGatewayToken() {
-  const envTok = process.env.MOLTBOT_GATEWAY_TOKEN?.trim();
+  const envTok = process.env.OPENCLAW_GATEWAY_TOKEN?.trim();
   if (envTok) return envTok;
 
   const tokenPath = path.join(STATE_DIR, "gateway.token");
@@ -65,23 +65,23 @@ function resolveGatewayToken() {
   return generated;
 }
 
-const MOLTBOT_GATEWAY_TOKEN = resolveGatewayToken();
-process.env.MOLTBOT_GATEWAY_TOKEN = MOLTBOT_GATEWAY_TOKEN;
+const OPENCLAW_GATEWAY_TOKEN = resolveGatewayToken();
+process.env.OPENCLAW_GATEWAY_TOKEN = OPENCLAW_GATEWAY_TOKEN;
 
 const INTERNAL_GATEWAY_PORT = Number.parseInt(process.env.INTERNAL_GATEWAY_PORT ?? "18789", 10);
 const INTERNAL_GATEWAY_HOST = process.env.INTERNAL_GATEWAY_HOST ?? "127.0.0.1";
 const GATEWAY_TARGET = `http://${INTERNAL_GATEWAY_HOST}:${INTERNAL_GATEWAY_PORT}`;
 
-// Moltbot CLI entry point
-const MOLTBOT_ENTRY = process.env.MOLTBOT_ENTRY?.trim() || "/moltbot/dist/entry.js";
-const MOLTBOT_NODE = process.env.MOLTBOT_NODE?.trim() || "node";
+// OpenClaw CLI entry point
+const OPENCLAW_ENTRY = process.env.OPENCLAW_ENTRY?.trim() || "/openclaw/dist/entry.js";
+const OPENCLAW_NODE = process.env.OPENCLAW_NODE?.trim() || "node";
 
-function moltArgs(args) {
-  return [MOLTBOT_ENTRY, ...args];
+function openclawArgs(args) {
+  return [OPENCLAW_ENTRY, ...args];
 }
 
 function configPath() {
-  return process.env.MOLTBOT_CONFIG_PATH?.trim() || path.join(STATE_DIR, "moltbot.json");
+  return process.env.OPENCLAW_CONFIG_PATH?.trim() || path.join(STATE_DIR, "openclaw.json");
 }
 
 function isConfigured() {
@@ -108,7 +108,7 @@ async function waitForGatewayReady(opts = {}) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
-      const res = await fetch(`${GATEWAY_TARGET}/moltbot`, { method: "GET" });
+      const res = await fetch(`${GATEWAY_TARGET}/openclaw`, { method: "GET" });
       if (res) return true;
     } catch {
       // not ready
@@ -131,15 +131,15 @@ async function startGateway() {
     "--bind", "loopback",
     "--port", String(INTERNAL_GATEWAY_PORT),
     "--auth", "token",
-    "--token", MOLTBOT_GATEWAY_TOKEN,
+    "--token", OPENCLAW_GATEWAY_TOKEN,
   ];
 
-  gatewayProc = childProcess.spawn(MOLTBOT_NODE, moltArgs(args), {
+  gatewayProc = childProcess.spawn(OPENCLAW_NODE, openclawArgs(args), {
     stdio: "inherit",
     env: {
       ...process.env,
-      MOLTBOT_STATE_DIR: STATE_DIR,
-      MOLTBOT_WORKSPACE_DIR: WORKSPACE_DIR,
+      OPENCLAW_STATE_DIR: STATE_DIR,
+      OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
     },
   });
 
@@ -242,7 +242,7 @@ function requireSetupAuth(req, res, next) {
   const header = req.headers.authorization || "";
   const [scheme, encoded] = header.split(" ");
   if (scheme !== "Basic" || !encoded) {
-    res.set("WWW-Authenticate", 'Basic realm="Moltbot Setup"');
+    res.set("WWW-Authenticate", 'Basic realm="OpenClaw Setup"');
     security.auditAuth(false, { reason: "no_credentials", ip: req.ip, path: req.path });
     return res.status(401).send("Auth required");
   }
@@ -250,7 +250,7 @@ function requireSetupAuth(req, res, next) {
   const idx = decoded.indexOf(":");
   const password = idx >= 0 ? decoded.slice(idx + 1) : "";
   if (password !== SETUP_PASSWORD) {
-    res.set("WWW-Authenticate", 'Basic realm="Moltbot Setup"');
+    res.set("WWW-Authenticate", 'Basic realm="OpenClaw Setup"');
     security.auditAuth(false, { reason: "invalid_password", ip: req.ip, path: req.path });
     return res.status(401).send("Invalid password");
   }
@@ -263,12 +263,12 @@ function requireSetupAuth(req, res, next) {
 // =============================================================================
 
 /**
- * Injects the gateway token into /moltbot/* requests that don't have one.
+ * Injects the gateway token into /openclaw/* requests that don't have one.
  * This fixes the token injection bug where the Control UI links don't work.
  */
 function injectToken(req, res, next) {
-  // Only apply to /moltbot paths
-  if (!req.path.startsWith("/moltbot")) {
+  // Only apply to /openclaw paths
+  if (!req.path.startsWith("/openclaw")) {
     return next();
   }
 
@@ -281,12 +281,12 @@ function injectToken(req, res, next) {
   const acceptHeader = req.get("Accept") || "";
   if (acceptHeader.includes("text/html") && req.method === "GET") {
     const separator = req.url.includes("?") ? "&" : "?";
-    const newUrl = `${req.url}${separator}token=${MOLTBOT_GATEWAY_TOKEN}`;
+    const newUrl = `${req.url}${separator}token=${OPENCLAW_GATEWAY_TOKEN}`;
     return res.redirect(302, newUrl);
   }
 
   // For API requests, add token to query
-  req.query.token = MOLTBOT_GATEWAY_TOKEN;
+  req.query.token = OPENCLAW_GATEWAY_TOKEN;
   next();
 }
 
@@ -323,7 +323,7 @@ app.get("/setup", requireSetupAuth, (_req, res) => {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Moltbot Setup</title>
+  <title>OpenClaw Setup</title>
   <style>
     body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 2rem; max-width: 900px; background: #0a0a0a; color: #e5e5e5; }
     .card { border: 1px solid #333; border-radius: 12px; padding: 1.25rem; margin: 1rem 0; background: #141414; }
@@ -340,8 +340,8 @@ app.get("/setup", requireSetupAuth, (_req, res) => {
   </style>
 </head>
 <body>
-  <h1>Moltbot Setup</h1>
-  <p class="muted">Hardened Moltbot deployment with security-first defaults.</p>
+  <h1>OpenClaw Setup</h1>
+  <p class="muted">Hardened OpenClaw deployment with security-first defaults.</p>
 
   <div class="card warning">
     <strong>Security Notice:</strong> This instance runs with hardened defaults.
@@ -352,7 +352,7 @@ app.get("/setup", requireSetupAuth, (_req, res) => {
     <h2>Status</h2>
     <div id="status">Loading...</div>
     <div style="margin-top: 0.75rem">
-      <a href="/moltbot" target="_blank">Open Moltbot UI</a>
+      <a href="/openclaw" target="_blank">Open OpenClaw UI</a>
       &nbsp;|&nbsp;
       <a href="/setup/export" target="_blank">Download backup (.tar.gz)</a>
     </div>
@@ -380,7 +380,7 @@ app.get("/setup", requireSetupAuth, (_req, res) => {
 
   <div class="card">
     <h2>2) Optional: Channels</h2>
-    <p class="muted">Add messaging channels. You can also add these later in the Moltbot UI.</p>
+    <p class="muted">Add messaging channels. You can also add these later in the OpenClaw UI.</p>
 
     <label>Telegram bot token (optional)</label>
     <input id="telegramToken" type="password" placeholder="123456:ABC..." />
@@ -433,8 +433,8 @@ function runCmd(cmd, args, opts = {}) {
       ...opts,
       env: {
         ...process.env,
-        MOLTBOT_STATE_DIR: STATE_DIR,
-        MOLTBOT_WORKSPACE_DIR: WORKSPACE_DIR,
+        OPENCLAW_STATE_DIR: STATE_DIR,
+        OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
       },
     });
 
@@ -452,8 +452,8 @@ function runCmd(cmd, args, opts = {}) {
 }
 
 app.get("/setup/api/status", requireSetupAuth, async (_req, res) => {
-  const version = await runCmd(MOLTBOT_NODE, moltArgs(["--version"]));
-  const channelsHelp = await runCmd(MOLTBOT_NODE, moltArgs(["channels", "add", "--help"]));
+  const version = await runCmd(OPENCLAW_NODE, openclawArgs(["--version"]));
+  const channelsHelp = await runCmd(OPENCLAW_NODE, openclawArgs(["channels", "add", "--help"]));
 
   const authGroups = [
     { value: "anthropic", label: "Anthropic", hint: "Claude Code CLI + API key", options: [
@@ -489,12 +489,12 @@ app.get("/setup/api/status", requireSetupAuth, async (_req, res) => {
   res.json({
     configured: isConfigured(),
     gatewayTarget: GATEWAY_TARGET,
-    moltbotVersion: version.output.trim(),
+    openclawVersion: version.output.trim(),
     channelsAddHelp: channelsHelp.output,
     authGroups,
     security: {
       setupPasswordSet: Boolean(SETUP_PASSWORD),
-      gatewayTokenSet: Boolean(MOLTBOT_GATEWAY_TOKEN),
+      gatewayTokenSet: Boolean(OPENCLAW_GATEWAY_TOKEN),
       nonRootUser: process.getuid?.() !== 0,
     },
     coreSync: coreSync.getStatus(),
@@ -513,7 +513,7 @@ function buildOnboardArgs(payload) {
     "--gateway-bind", "loopback",
     "--gateway-port", String(INTERNAL_GATEWAY_PORT),
     "--gateway-auth", "token",
-    "--gateway-token", MOLTBOT_GATEWAY_TOKEN,
+    "--gateway-token", OPENCLAW_GATEWAY_TOKEN,
     "--flow", payload.flow || "quickstart"
   ];
 
@@ -556,7 +556,7 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
 
     const payload = req.body || {};
     const onboardArgs = buildOnboardArgs(payload);
-    const onboard = await runCmd(MOLTBOT_NODE, moltArgs(onboardArgs));
+    const onboard = await runCmd(OPENCLAW_NODE, openclawArgs(onboardArgs));
 
     let extra = "";
     const ok = onboard.code === 0 && isConfigured();
@@ -569,18 +569,18 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
 
         // Apply security defaults
         if (defaults.nodes?.run) {
-          await runCmd(MOLTBOT_NODE, moltArgs(["config", "set", "nodes.run.enabled", String(defaults.nodes.run.enabled)]));
+          await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "nodes.run.enabled", String(defaults.nodes.run.enabled)]));
           if (defaults.nodes.run.denylist) {
-            await runCmd(MOLTBOT_NODE, moltArgs(["config", "set", "--json", "nodes.run.denylist", JSON.stringify(defaults.nodes.run.denylist)]));
+            await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "--json", "nodes.run.denylist", JSON.stringify(defaults.nodes.run.denylist)]));
           }
         }
 
         if (defaults.security?.auditLog) {
-          await runCmd(MOLTBOT_NODE, moltArgs(["config", "set", "--json", "security.auditLog", JSON.stringify(defaults.security.auditLog)]));
+          await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "--json", "security.auditLog", JSON.stringify(defaults.security.auditLog)]));
         }
 
         if (defaults.security?.cogSec) {
-          await runCmd(MOLTBOT_NODE, moltArgs(["config", "set", "--json", "security.cogSec", JSON.stringify(defaults.security.cogSec)]));
+          await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "--json", "security.cogSec", JSON.stringify(defaults.security.cogSec)]));
         }
 
         extra += "\n[security] Applied hardened defaults from gateway-defaults.json\n";
@@ -590,18 +590,18 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
       }
 
       // Set core gateway configuration
-      await runCmd(MOLTBOT_NODE, moltArgs(["config", "set", "gateway.auth.mode", "token"]));
-      await runCmd(MOLTBOT_NODE, moltArgs(["config", "set", "gateway.auth.token", MOLTBOT_GATEWAY_TOKEN]));
-      await runCmd(MOLTBOT_NODE, moltArgs(["config", "set", "gateway.bind", "loopback"]));
-      await runCmd(MOLTBOT_NODE, moltArgs(["config", "set", "gateway.port", String(INTERNAL_GATEWAY_PORT)]));
+      await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "gateway.auth.mode", "token"]));
+      await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]));
+      await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "gateway.bind", "loopback"]));
+      await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "gateway.port", String(INTERNAL_GATEWAY_PORT)]));
 
       // SECURITY: Disable command execution by default (redundant but explicit)
-      await runCmd(MOLTBOT_NODE, moltArgs(["config", "set", "nodes.run.enabled", "false"]));
+      await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "nodes.run.enabled", "false"]));
 
       // SECURITY: Set trustedProxies for Railway
-      await runCmd(MOLTBOT_NODE, moltArgs(["config", "set", "--json", "gateway.trustedProxies", '["127.0.0.1", "::1"]']));
+      await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "--json", "gateway.trustedProxies", '["127.0.0.1", "::1"]']));
 
-      const channelsHelp = await runCmd(MOLTBOT_NODE, moltArgs(["channels", "add", "--help"]));
+      const channelsHelp = await runCmd(OPENCLAW_NODE, openclawArgs(["channels", "add", "--help"]));
       const helpText = channelsHelp.output || "";
       const supports = (name) => helpText.includes(name);
 
@@ -618,7 +618,7 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
             groupPolicy: "allowlist",
             streamMode: "partial",
           };
-          const set = await runCmd(MOLTBOT_NODE, moltArgs(["config", "set", "--json", "channels.telegram", JSON.stringify(cfgObj)]));
+          const set = await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "--json", "channels.telegram", JSON.stringify(cfgObj)]));
           extra += `\n[telegram] configured (exit=${set.code})\n`;
         }
       }
@@ -634,7 +634,7 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
             groupPolicy: "allowlist",
             dm: { policy: "pairing" },
           };
-          const set = await runCmd(MOLTBOT_NODE, moltArgs(["config", "set", "--json", "channels.discord", JSON.stringify(cfgObj)]));
+          const set = await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "--json", "channels.discord", JSON.stringify(cfgObj)]));
           extra += `\n[discord] configured (exit=${set.code})\n`;
         }
       }
@@ -648,7 +648,7 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
             botToken: payload.slackBotToken?.trim() || undefined,
             appToken: payload.slackAppToken?.trim() || undefined,
           };
-          const set = await runCmd(MOLTBOT_NODE, moltArgs(["config", "set", "--json", "channels.slack", JSON.stringify(cfgObj)]));
+          const set = await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "--json", "channels.slack", JSON.stringify(cfgObj)]));
           extra += `\n[slack] configured (exit=${set.code})\n`;
         }
       }
@@ -667,8 +667,8 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
 });
 
 app.get("/setup/api/debug", requireSetupAuth, async (_req, res) => {
-  const v = await runCmd(MOLTBOT_NODE, moltArgs(["--version"]));
-  const help = await runCmd(MOLTBOT_NODE, moltArgs(["channels", "add", "--help"]));
+  const v = await runCmd(OPENCLAW_NODE, openclawArgs(["--version"]));
+  const help = await runCmd(OPENCLAW_NODE, openclawArgs(["channels", "add", "--help"]));
   res.json({
     wrapper: {
       node: process.version,
@@ -677,14 +677,14 @@ app.get("/setup/api/debug", requireSetupAuth, async (_req, res) => {
       workspaceDir: WORKSPACE_DIR,
       coreDir: CORE_DIR,
       configPath: configPath(),
-      gatewayTokenSet: Boolean(MOLTBOT_GATEWAY_TOKEN),
+      gatewayTokenSet: Boolean(OPENCLAW_GATEWAY_TOKEN),
       setupPasswordSet: Boolean(SETUP_PASSWORD),
       nonRootUser: process.getuid?.() !== 0,
       uid: process.getuid?.(),
     },
-    moltbot: {
-      entry: MOLTBOT_ENTRY,
-      node: MOLTBOT_NODE,
+    openclaw: {
+      entry: OPENCLAW_ENTRY,
+      node: OPENCLAW_NODE,
       version: v.output.trim(),
       channelsAddHelpIncludesTelegram: help.output.includes("telegram"),
     },
@@ -696,7 +696,7 @@ app.post("/setup/api/pairing/approve", requireSetupAuth, async (req, res) => {
   if (!channel || !code) {
     return res.status(400).json({ ok: false, error: "Missing channel or code" });
   }
-  const r = await runCmd(MOLTBOT_NODE, moltArgs(["pairing", "approve", String(channel), String(code)]));
+  const r = await runCmd(OPENCLAW_NODE, openclawArgs(["pairing", "approve", String(channel), String(code)]));
   return res.status(r.code === 0 ? 200 : 500).json({ ok: r.code === 0, output: r.output });
 });
 
@@ -716,7 +716,7 @@ app.get("/setup/export", requireSetupAuth, async (_req, res) => {
   res.setHeader("content-type", "application/gzip");
   res.setHeader(
     "content-disposition",
-    `attachment; filename="moltbot-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.tar.gz"`,
+    `attachment; filename="openclaw-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.tar.gz"`,
   );
 
   const stateAbs = path.resolve(STATE_DIR);
@@ -859,7 +859,7 @@ proxy.on("error", (err, _req, _res) => {
   console.error("[proxy]", err);
 });
 
-// Token injection for /moltbot/* paths
+// Token injection for /openclaw/* paths
 app.use(injectToken);
 
 // Catch-all route
@@ -895,13 +895,13 @@ if (SETUP_PASSWORD && SETUP_PASSWORD.length < 16) {
 }
 
 const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`[wrapper] Moltbot Hardened Template`);
+  console.log(`[wrapper] OpenClaw Hardened Template`);
   console.log(`[wrapper] Listening on :${PORT}`);
   console.log(`[wrapper] State dir: ${STATE_DIR}`);
   console.log(`[wrapper] Workspace dir: ${WORKSPACE_DIR}`);
   console.log(`[wrapper] Core dir: ${CORE_DIR}`);
   console.log(`[wrapper] Gateway target: ${GATEWAY_TARGET}`);
-  console.log(`[wrapper] Gateway token: ${MOLTBOT_GATEWAY_TOKEN ? "(set)" : "(missing)"}`);
+  console.log(`[wrapper] Gateway token: ${OPENCLAW_GATEWAY_TOKEN ? "(set)" : "(missing)"}`);
   console.log(`[wrapper] Setup password: ${SETUP_PASSWORD ? "(set)" : "(MISSING - SECURITY ISSUE)"}`);
   console.log(`[wrapper] Running as UID: ${process.getuid?.() ?? "unknown"}`);
 

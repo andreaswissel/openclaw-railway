@@ -1,7 +1,7 @@
 {
-  "name": "moltbot-railway-hardened",
+  "name": "openclaw-railway-hardened",
   "version": "1.0.0",
-  "description": "Hardened Moltbot Railway template with security-first defaults",
+  "description": "Hardened OpenClaw Railway template with security-first defaults",
   "private": true,
   "type": "module",
   "main": "src/server.js",
