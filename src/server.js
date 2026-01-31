@@ -1,16 +1,17 @@
 /**
  * Hardened OpenClaw Railway Wrapper Server
  *
- * Based on Vignesh's clawdbot-railway-template with key improvements:
- * - Token injection fix for /openclaw/* paths
- * - Rate limiting on /setup/* endpoints
- * - Security headers
- * - SETUP_PASSWORD validation on startup
- * - trustedProxies pre-configured for Railway
+ * A thin wrapper that:
+ * 1. Provides a password-protected /setup UI for initial configuration
+ * 2. Manages the gateway subprocess (since Railway has no systemd)
+ * 3. Proxies requests to the gateway
+ * 4. Injects gateway token into Control UI requests
+ *
+ * IMPORTANT: This wrapper does NOT manage tokens. OpenClaw manages its own
+ * tokens via `openclaw onboard`. We just read them when needed for the UI.
  */
 
 import childProcess from "node:child_process";
-import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -31,6 +32,9 @@ const STATE_DIR = process.env.OPENCLAW_STATE_DIR?.trim() || path.join(os.homedir
 const WORKSPACE_DIR = process.env.OPENCLAW_WORKSPACE_DIR?.trim() || path.join(STATE_DIR, "workspace");
 const CORE_DIR = process.env.OPENCLAW_CORE_DIR?.trim() || path.join("/data", "core");
 
+const INTERNAL_GATEWAY_PORT = Number.parseInt(process.env.INTERNAL_GATEWAY_PORT ?? "18789", 10);
+const INTERNAL_GATEWAY_HOST = process.env.INTERNAL_GATEWAY_HOST ?? "127.0.0.1";
+const GATEWAY_TARGET = `http://${INTERNAL_GATEWAY_HOST}:${INTERNAL_GATEWAY_PORT}`;
 
 // Security: Require SETUP_PASSWORD
 const SETUP_PASSWORD = process.env.SETUP_PASSWORD?.trim();
@@ -39,59 +43,6 @@ const SETUP_PASSWORD = process.env.SETUP_PASSWORD?.trim();
 const rateLimitState = new Map();
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 30;
-
-// =============================================================================
-// Gateway Token Management
-// =============================================================================
-
-function resolveGatewayToken() {
-  // 1. Environment variable takes priority
-  const envTok = process.env.OPENCLAW_GATEWAY_TOKEN?.trim();
-  if (envTok) return envTok;
-
-  // 2. Read from OpenClaw's config file if it exists (persists across redeploys)
-  const cfgPath = process.env.OPENCLAW_CONFIG_PATH?.trim() || path.join(STATE_DIR, "openclaw.json");
-  try {
-    const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
-    const cfgToken = cfg?.gateway?.auth?.token?.trim();
-    if (cfgToken) {
-      console.log("[token] Using token from openclaw.json");
-      return cfgToken;
-    }
-  } catch {
-    // Config doesn't exist yet, that's fine
-  }
-
-  // 3. Read from our token file (legacy/backup)
-  const tokenPath = path.join(STATE_DIR, "gateway.token");
-  try {
-    const existing = fs.readFileSync(tokenPath, "utf8").trim();
-    if (existing) {
-      console.log("[token] Using token from gateway.token file");
-      return existing;
-    }
-  } catch {
-    // ignore
-  }
-
-  // 4. Generate new token only if nothing else exists
-  console.log("[token] Generating new gateway token");
-  const generated = crypto.randomBytes(32).toString("hex");
-  try {
-    fs.mkdirSync(STATE_DIR, { recursive: true });
-    fs.writeFileSync(tokenPath, generated, { encoding: "utf8", mode: 0o600 });
-  } catch {
-    // best-effort
-  }
-  return generated;
-}
-
-const OPENCLAW_GATEWAY_TOKEN = resolveGatewayToken();
-process.env.OPENCLAW_GATEWAY_TOKEN = OPENCLAW_GATEWAY_TOKEN;
-
-const INTERNAL_GATEWAY_PORT = Number.parseInt(process.env.INTERNAL_GATEWAY_PORT ?? "18789", 10);
-const INTERNAL_GATEWAY_HOST = process.env.INTERNAL_GATEWAY_HOST ?? "127.0.0.1";
-const GATEWAY_TARGET = `http://${INTERNAL_GATEWAY_HOST}:${INTERNAL_GATEWAY_PORT}`;
 
 // OpenClaw CLI entry point
 const OPENCLAW_ENTRY = process.env.OPENCLAW_ENTRY?.trim() || "/openclaw/dist/entry.js";
@@ -110,6 +61,19 @@ function isConfigured() {
     return fs.existsSync(configPath());
   } catch {
     return false;
+  }
+}
+
+/**
+ * Read the gateway token from OpenClaw's config.
+ * Returns null if not configured yet.
+ */
+function getGatewayToken() {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(configPath(), "utf8"));
+    return cfg?.gateway?.auth?.token?.trim() || null;
+  } catch {
+    return null;
   }
 }
 
@@ -146,13 +110,10 @@ async function startGateway() {
   fs.mkdirSync(STATE_DIR, { recursive: true });
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
 
+  // Let OpenClaw read its own config - don't pass token on command line
   const args = [
     "gateway",
     "run",
-    "--bind", "loopback",
-    "--port", String(INTERNAL_GATEWAY_PORT),
-    "--auth", "token",
-    "--token", OPENCLAW_GATEWAY_TOKEN,
   ];
 
   gatewayProc = childProcess.spawn(OPENCLAW_NODE, openclawArgs(args), {
@@ -211,15 +172,11 @@ async function restartGateway() {
 // =============================================================================
 
 function securityHeaders(req, res, next) {
-  // Security headers
   res.set("X-Content-Type-Options", "nosniff");
   res.set("X-Frame-Options", "DENY");
   res.set("X-XSS-Protection", "1; mode=block");
   res.set("Referrer-Policy", "strict-origin-when-cross-origin");
-
-  // Remove powered-by header
   res.removeHeader("X-Powered-By");
-
   next();
 }
 
@@ -227,7 +184,6 @@ function rateLimit(req, res, next) {
   const ip = req.ip || req.socket.remoteAddress || "unknown";
   const now = Date.now();
 
-  // Clean old entries
   for (const [key, data] of rateLimitState.entries()) {
     if (now - data.windowStart > RATE_LIMIT_WINDOW_MS) {
       rateLimitState.delete(key);
@@ -280,34 +236,35 @@ function requireSetupAuth(req, res, next) {
 }
 
 // =============================================================================
-// Token Injection Middleware (FIXES THE BUG)
+// Token Injection Middleware
 // =============================================================================
 
 /**
  * Injects the gateway token into /openclaw/* requests that don't have one.
- * This fixes the token injection bug where the Control UI links don't work.
+ * Reads the token from OpenClaw's config - we don't manage it ourselves.
  */
 function injectToken(req, res, next) {
-  // Only apply to /openclaw paths
   if (!req.path.startsWith("/openclaw")) {
     return next();
   }
 
-  // If token already present in query, pass through
   if (req.query.token) {
     return next();
   }
 
-  // For HTML requests (browser navigation), redirect with token
+  const token = getGatewayToken();
+  if (!token) {
+    return next();
+  }
+
   const acceptHeader = req.get("Accept") || "";
   if (acceptHeader.includes("text/html") && req.method === "GET") {
     const separator = req.url.includes("?") ? "&" : "?";
-    const newUrl = `${req.url}${separator}token=${OPENCLAW_GATEWAY_TOKEN}`;
+    const newUrl = `${req.url}${separator}token=${token}`;
     return res.redirect(302, newUrl);
   }
 
-  // For API requests, add token to query
-  req.query.token = OPENCLAW_GATEWAY_TOKEN;
+  req.query.token = token;
   next();
 }
 
@@ -317,9 +274,8 @@ function injectToken(req, res, next) {
 
 const app = express();
 app.disable("x-powered-by");
-app.set("trust proxy", true); // Trust Railway's proxy
+app.set("trust proxy", true);
 
-// Global middleware
 app.use(securityHeaders);
 app.use(express.json({ limit: "1mb" }));
 
@@ -472,7 +428,7 @@ function runCmd(cmd, args, opts = {}) {
 
     proc.on("close", (code) => resolve({
       code: code ?? 0,
-      output: stdout + stderr, // combined for backwards compat
+      output: stdout + stderr,
       stdout,
       stderr
     }));
@@ -489,7 +445,6 @@ app.get("/setup/api/status", requireSetupAuth, async (_req, res) => {
       { value: "apiKey", label: "Anthropic API key" }
     ]},
     { value: "openai", label: "OpenAI", hint: "Codex OAuth + API key", options: [
-      { value: "codex-cli", label: "OpenAI Codex OAuth (Codex CLI)" },
       { value: "openai-codex", label: "OpenAI Codex (ChatGPT OAuth)" },
       { value: "openai-api-key", label: "OpenAI API key" }
     ]},
@@ -501,19 +456,12 @@ app.get("/setup/api/status", requireSetupAuth, async (_req, res) => {
     { value: "openrouter", label: "OpenRouter", hint: "API key", options: [
       { value: "openrouter-api-key", label: "OpenRouter API key" }
     ]},
-    { value: "ai-gateway", label: "Vercel AI Gateway", hint: "API key", options: [
-      { value: "ai-gateway-api-key", label: "Vercel AI Gateway API key" }
-    ]},
     { value: "moonshot", label: "Moonshot AI", hint: "Kimi K2 + Kimi Code", options: [
       { value: "moonshot-api-key", label: "Moonshot AI API key" },
       { value: "kimi-code-api-key", label: "Kimi Code API key" }
     ]},
-    { value: "synthetic", label: "Synthetic", hint: "Anthropic-compatible (multi-model)", options: [
-      { value: "synthetic-api-key", label: "Synthetic API key" }
-    ]},
   ];
 
-  // Use stdout only to avoid error spam in the UI
   const versionStr = (version.stdout || version.output || "").trim().split("\n")[0] || "unknown";
 
   res.json({
@@ -524,7 +472,7 @@ app.get("/setup/api/status", requireSetupAuth, async (_req, res) => {
     authGroups,
     security: {
       setupPasswordSet: Boolean(SETUP_PASSWORD),
-      gatewayTokenSet: Boolean(OPENCLAW_GATEWAY_TOKEN),
+      gatewayTokenSet: Boolean(getGatewayToken()),
       nonRootUser: process.getuid?.() !== 0,
     },
     coreSync: coreSync.getStatus(),
@@ -532,6 +480,7 @@ app.get("/setup/api/status", requireSetupAuth, async (_req, res) => {
 });
 
 function buildOnboardArgs(payload) {
+  // Let openclaw onboard handle everything - don't override gateway settings
   const args = [
     "onboard",
     "--non-interactive",
@@ -543,7 +492,6 @@ function buildOnboardArgs(payload) {
     "--gateway-bind", "loopback",
     "--gateway-port", String(INTERNAL_GATEWAY_PORT),
     "--gateway-auth", "token",
-    "--gateway-token", OPENCLAW_GATEWAY_TOKEN,
     "--flow", payload.flow || "quickstart"
   ];
 
@@ -555,11 +503,9 @@ function buildOnboardArgs(payload) {
       "openai-api-key": "--openai-api-key",
       "apiKey": "--anthropic-api-key",
       "openrouter-api-key": "--openrouter-api-key",
-      "ai-gateway-api-key": "--ai-gateway-api-key",
       "moonshot-api-key": "--moonshot-api-key",
       "kimi-code-api-key": "--kimi-code-api-key",
       "gemini-api-key": "--gemini-api-key",
-      "synthetic-api-key": "--synthetic-api-key",
     };
     const flag = map[payload.authChoice];
     if (flag && secret) {
@@ -592,12 +538,11 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
     const ok = onboard.code === 0 && isConfigured();
 
     if (ok) {
-      // Apply hardened gateway defaults from config file
+      // Apply hardened security defaults
       try {
         const defaultsPath = path.join(process.cwd(), "config", "gateway-defaults.json");
         const defaults = JSON.parse(fs.readFileSync(defaultsPath, "utf8"));
 
-        // Apply security defaults
         if (defaults.nodes?.run) {
           await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "nodes.run.enabled", String(defaults.nodes.run.enabled)]));
           if (defaults.nodes.run.denylist) {
@@ -613,30 +558,23 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
           await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "--json", "security.cogSec", JSON.stringify(defaults.security.cogSec)]));
         }
 
-        extra += "\n[security] Applied hardened defaults from gateway-defaults.json\n";
+        extra += "\n[security] Applied hardened defaults\n";
         security.auditLog({ type: "config_init", severity: "info", message: "Applied hardened gateway defaults" });
       } catch (err) {
         extra += `\n[security] Warning: Could not load gateway-defaults.json: ${err.message}\n`;
       }
 
-      // Set core gateway configuration
-      await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "gateway.auth.mode", "token"]));
-      await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]));
-      await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "gateway.remote.token", OPENCLAW_GATEWAY_TOKEN])); // MUST match auth.token
-      await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "gateway.bind", "loopback"]));
-      await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "gateway.port", String(INTERNAL_GATEWAY_PORT)]));
-
-      // SECURITY: Disable command execution by default (redundant but explicit)
+      // SECURITY: Disable command execution by default
       await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "nodes.run.enabled", "false"]));
 
       // SECURITY: Set trustedProxies for Railway
       await runCmd(OPENCLAW_NODE, openclawArgs(["config", "set", "--json", "gateway.trustedProxies", '["127.0.0.1", "::1"]']));
 
+      // Configure channels if provided
       const channelsHelp = await runCmd(OPENCLAW_NODE, openclawArgs(["channels", "add", "--help"]));
       const helpText = channelsHelp.output || "";
       const supports = (name) => helpText.includes(name);
 
-      // Configure channels if provided
       if (payload.telegramToken?.trim()) {
         if (!supports("telegram")) {
           extra += "\n[telegram] skipped (not supported in this build)\n";
@@ -684,6 +622,9 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
         }
       }
 
+      // Run doctor to fix any issues
+      await runCmd(OPENCLAW_NODE, openclawArgs(["doctor", "--fix"]));
+
       await restartGateway();
     }
 
@@ -708,7 +649,7 @@ app.get("/setup/api/debug", requireSetupAuth, async (_req, res) => {
       workspaceDir: WORKSPACE_DIR,
       coreDir: CORE_DIR,
       configPath: configPath(),
-      gatewayTokenSet: Boolean(OPENCLAW_GATEWAY_TOKEN),
+      gatewayTokenSet: Boolean(getGatewayToken()),
       setupPasswordSet: Boolean(SETUP_PASSWORD),
       nonRootUser: process.getuid?.() !== 0,
       uid: process.getuid?.(),
@@ -831,7 +772,6 @@ app.get("/setup/api/core/status", requireSetupAuth, async (_req, res) => {
 app.post("/setup/api/core/init", requireSetupAuth, async (_req, res) => {
   try {
     const result = await coreSync.initializeCore();
-    // Start background sync after initialization
     coreSync.startSyncInterval();
     res.json(result);
   } catch (err) {
@@ -913,10 +853,8 @@ proxy.on("error", (err, _req, _res) => {
   console.error("[proxy]", err);
 });
 
-// Token injection for /openclaw/* paths
 app.use(injectToken);
 
-// Catch-all route
 app.use(async (req, res) => {
   if (!isConfigured() && !req.path.startsWith("/setup")) {
     return res.redirect("/setup");
@@ -937,7 +875,6 @@ app.use(async (req, res) => {
 // Server Startup
 // =============================================================================
 
-// Validate SETUP_PASSWORD on startup
 if (!SETUP_PASSWORD) {
   console.error("[SECURITY] SETUP_PASSWORD is not set!");
   console.error("[SECURITY] Set SETUP_PASSWORD in Railway Variables before deploying.");
@@ -949,22 +886,17 @@ if (SETUP_PASSWORD && SETUP_PASSWORD.length < 16) {
 }
 
 const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`[wrapper] OpenClaw Hardened Template`);
+  console.log(`[wrapper] OpenClaw Hardened Railway Template`);
   console.log(`[wrapper] Listening on :${PORT}`);
   console.log(`[wrapper] State dir: ${STATE_DIR}`);
   console.log(`[wrapper] Workspace dir: ${WORKSPACE_DIR}`);
-  console.log(`[wrapper] Core dir: ${CORE_DIR}`);
   console.log(`[wrapper] Gateway target: ${GATEWAY_TARGET}`);
-  console.log(`[wrapper] Gateway token: ${OPENCLAW_GATEWAY_TOKEN ? "(set)" : "(missing)"}`);
-  console.log(`[wrapper] Setup password: ${SETUP_PASSWORD ? "(set)" : "(MISSING - SECURITY ISSUE)"}`);
+  console.log(`[wrapper] Setup password: ${SETUP_PASSWORD ? "(set)" : "(MISSING)"}`);
   console.log(`[wrapper] Running as UID: ${process.getuid?.() ?? "unknown"}`);
 
-  // Start Core sync if already initialized
   if (coreSync.isInitialized()) {
     console.log(`[wrapper] Core sync initialized, starting background sync...`);
     coreSync.startSyncInterval();
-  } else {
-    console.log(`[wrapper] Core sync not initialized (configure CORE_REPO and GITHUB_TOKEN)`);
   }
 });
 
