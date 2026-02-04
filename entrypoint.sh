@@ -110,7 +110,52 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# 5. Start bootstrap server (drops to openclaw user)
+# 5. Config watcher - starts gateway when onboard completes
+# -----------------------------------------------------------------------------
+if [ ! -f "$CONFIG_FILE" ]; then
+  echo "[entrypoint] Starting config watcher..."
+  (
+    # Wait for config file to be created by onboard
+    while [ ! -f "$CONFIG_FILE" ]; do
+      sleep 2
+    done
+
+    echo "[entrypoint] Config detected! Patching and starting gateway..."
+
+    # Give onboard a moment to finish writing
+    sleep 1
+
+    # Patch config with Tailscale settings
+    jq '
+      .gateway.tailscale.mode = "serve" |
+      .gateway.auth.allowTailscale = true |
+      .gateway.controlUi.allowInsecureAuth = true |
+      .gateway.trustedProxies = ["127.0.0.1"]
+    ' "$CONFIG_FILE" > /tmp/openclaw.json && mv /tmp/openclaw.json "$CONFIG_FILE"
+    chown openclaw:openclaw "$CONFIG_FILE"
+
+    # Check if Tailscale is ready now
+    if tailscale status --json 2>/dev/null | grep -q '"BackendState":"Running"'; then
+      echo "[entrypoint] Starting gateway with Tailscale serve..."
+      su openclaw -c "cd /data/workspace && openclaw gateway run \
+        --port 18789 \
+        --tailscale serve \
+        > /data/.openclaw/gateway.log 2>&1 &"
+
+      sleep 3
+      TS_HOSTNAME=$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName' | sed 's/\.$//')
+      echo "[entrypoint] Control UI ready: https://$TS_HOSTNAME/"
+    else
+      echo "[entrypoint] Starting gateway without Tailscale (not authenticated yet)..."
+      su openclaw -c "cd /data/workspace && openclaw gateway run \
+        --port 18789 \
+        > /data/.openclaw/gateway.log 2>&1 &"
+    fi
+  ) &
+fi
+
+# -----------------------------------------------------------------------------
+# 6. Start bootstrap server (drops to openclaw user)
 # -----------------------------------------------------------------------------
 echo "[entrypoint] Starting bootstrap server..."
 exec su openclaw -c "cd /app && bun run src/server.js"

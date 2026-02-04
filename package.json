@@ -1,16 +1,11 @@
 {
-  "name": "openclaw-railway-hardened",
+  "name": "openclaw-railway",
   "version": "1.0.0",
-  "description": "Hardened OpenClaw Railway template with security-first defaults",
+  "description": "OpenClaw Railway template",
   "private": true,
   "type": "module",
   "main": "src/server.js",
   "scripts": {
-    "start": "bun run src/server.js",
-    "start:node": "node src/server.js"
-  },
-  "dependencies": {
-    "cookie-parser": "^1.4.7",
-    "express": "^5.1.0"
+    "start": "bun run src/server.js"
   }
 }
