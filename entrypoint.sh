@@ -53,17 +53,17 @@ start_gateway() {
   chmod 600 "$CONFIG_FILE"
   chown openclaw:openclaw "$CONFIG_FILE"
 
-  su openclaw -c "cd /data/workspace && nohup openclaw gateway run \
-    --port 18789 \
-    > /data/.openclaw/gateway.log 2>&1 &"
+  # Start gateway in background, streaming logs to stdout/stderr
+  su openclaw -c "cd /data/workspace && openclaw gateway run --port 18789 2>&1 | while read line; do echo \"[gateway] \$line\"; done" &
+  GATEWAY_PID=$!
 
-  sleep 2
+  sleep 3
 
-  if pgrep -f "openclaw gateway" > /dev/null; then
-    echo "[entrypoint] Gateway started successfully"
+  if kill -0 $GATEWAY_PID 2>/dev/null; then
+    echo "[entrypoint] Gateway running (PID: $GATEWAY_PID)"
   else
-    echo "[entrypoint] WARNING: Gateway failed to start"
-    echo "[entrypoint] Check logs: cat /data/.openclaw/gateway.log"
+    echo "[entrypoint] ERROR: Gateway exited immediately"
+    exit 1
   fi
 }
 
