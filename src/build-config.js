@@ -11,6 +11,37 @@ import path from 'node:path';
 const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || '/data/.openclaw/openclaw.json';
 const DEFAULTS_PATH = '/app/config/defaults.json';
 
+// LLM Provider API Keys - OpenClaw reads these directly from env
+// Listed here so Railway detects them in the UI
+const LLM_PROVIDERS = [
+  // Major cloud providers
+  'ANTHROPIC_API_KEY',
+  'OPENAI_API_KEY',
+  'GOOGLE_AI_API_KEY',
+  // Aggregators/Gateways
+  'OPENROUTER_API_KEY',
+  'VERCEL_GATEWAY_API_KEY',
+  // Fast inference
+  'GROQ_API_KEY',
+  'TOGETHER_API_KEY',
+  'FIREWORKS_API_KEY',
+  // Coding-focused
+  'ZAI_API_KEY',
+  'KIMI_API_KEY',
+  'MOONSHOT_API_KEY',
+  'MINIMAX_API_KEY',
+  'DEEPSEEK_API_KEY',
+  // Other providers
+  'XAI_API_KEY',
+  'MISTRAL_API_KEY',
+  'VENICE_API_KEY',
+  'CLOUDFLARE_API_KEY',
+  // AWS Bedrock (needs region too)
+  'AWS_ACCESS_KEY_ID',
+  'AWS_SECRET_ACCESS_KEY',
+  'AWS_REGION',
+];
+
 function buildConfig() {
   // Start with defaults if they exist
   let config = {};
@@ -138,8 +169,12 @@ function main() {
     console.log('[build-config] Set at least one of: TELEGRAM_BOT_TOKEN, DISCORD_BOT_TOKEN, SLACK_BOT_TOKEN');
   }
 
-  // Note: LLM API keys are read directly by OpenClaw from standard env vars
-  // (ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, etc.)
+  // Check for LLM provider
+  const hasLLM = LLM_PROVIDERS.some(key => process.env[key]);
+  if (!hasLLM) {
+    console.log('[build-config] WARNING: No LLM provider configured');
+    console.log('[build-config] Set at least one of:', LLM_PROVIDERS.join(', '));
+  }
 
   const config = buildConfig();
 

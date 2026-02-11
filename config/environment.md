@@ -12,21 +12,51 @@ You need at least one LLM provider API key for the agent to function.
 
 ### Provider-Specific Keys
 
-Set the key for your preferred provider(s). You can set multiple if you want fallbacks or different models for different tasks.
+Set the key for your preferred provider(s). You can set multiple for fallbacks.
 
+**Major Cloud Providers:**
 | Variable | Provider |
 |----------|----------|
-| `OPENROUTER_API_KEY` | OpenRouter |
+| `ANTHROPIC_API_KEY` | Anthropic (Claude) |
+| `OPENAI_API_KEY` | OpenAI (GPT) |
+| `GOOGLE_AI_API_KEY` | Google AI Studio (Gemini) |
+
+**Aggregators/Gateways:**
+| Variable | Provider |
+|----------|----------|
+| `OPENROUTER_API_KEY` | OpenRouter (access many models) |
+| `VERCEL_GATEWAY_API_KEY` | Vercel AI Gateway |
+
+**Fast Inference:**
+| Variable | Provider |
+|----------|----------|
 | `GROQ_API_KEY` | Groq |
 | `TOGETHER_API_KEY` | Together AI |
-| `VENICE_API_KEY` | Venice AI |
-| `GOOGLE_AI_API_KEY` | Google AI Studio |
-| `MISTRAL_API_KEY` | Mistral |
-| `OPENAI_API_KEY` | OpenAI |
-| `ANTHROPIC_API_KEY` | Anthropic |
-| `XAI_API_KEY` | xAI (Grok) |
+| `FIREWORKS_API_KEY` | Fireworks AI |
+
+**Coding-Focused:**
+| Variable | Provider |
+|----------|----------|
+| `ZAI_API_KEY` | Z.AI |
+| `KIMI_API_KEY` | Kimi Coding |
+| `MOONSHOT_API_KEY` | Moonshot AI (Kimi) |
+| `MINIMAX_API_KEY` | MiniMax |
 | `DEEPSEEK_API_KEY` | DeepSeek |
+
+**Other Providers:**
+| Variable | Provider |
+|----------|----------|
+| `XAI_API_KEY` | xAI (Grok) |
+| `MISTRAL_API_KEY` | Mistral |
+| `VENICE_API_KEY` | Venice AI (privacy-focused) |
 | `CLOUDFLARE_API_KEY` | Cloudflare AI |
+
+**AWS Bedrock:**
+| Variable | Description |
+|----------|-------------|
+| `AWS_ACCESS_KEY_ID` | AWS access key |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key |
+| `AWS_REGION` | AWS region (e.g., us-east-1) |
 
 ## Model Selection
 
