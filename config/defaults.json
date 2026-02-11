@@ -1,0 +1,24 @@
+{
+  "agent": {
+    "workspace": "/data/workspace"
+  },
+  "tools": {
+    "allow": ["read", "write", "edit", "memory_search", "memory_get"],
+    "deny": ["exec", "process", "browser", "nodes", "web_search", "web_fetch", "gateway"],
+    "elevated": {
+      "enabled": false
+    }
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "gateway": {
+    "bind": "loopback",
+    "auth": {
+      "mode": "token"
+    }
+  },
+  "logging": {
+    "redactSensitive": "tools"
+  }
+}

@@ -9,95 +9,31 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || '/data/.openclaw/openclaw.json';
-const DEFAULTS_PATH = '/app/config/defaults.json5';
-
-// Parse JSON5 (strip comments)
-function parseJson5(content) {
-  // Remove single-line comments
-  const noComments = content
-    .split('\n')
-    .map(line => {
-      const commentIndex = line.indexOf('//');
-      if (commentIndex === -1) return line;
-      // Check if // is inside a string
-      const beforeComment = line.substring(0, commentIndex);
-      const quotes = (beforeComment.match(/"/g) || []).length;
-      if (quotes % 2 === 0) {
-        return beforeComment;
-      }
-      return line;
-    })
-    .join('\n');
-
-  // Handle trailing commas (simple approach)
-  const noTrailing = noComments.replace(/,(\s*[}\]])/g, '$1');
-
-  return JSON.parse(noTrailing);
-}
+const DEFAULTS_PATH = '/app/config/defaults.json';
 
 function buildConfig() {
   // Start with defaults if they exist
   let config = {};
   if (fs.existsSync(DEFAULTS_PATH)) {
     const defaults = fs.readFileSync(DEFAULTS_PATH, 'utf-8');
-    config = parseJson5(defaults);
+    config = JSON.parse(defaults);
   }
 
   // Ensure structure exists
-  config.agents = config.agents || {};
-  config.agents.defaults = config.agents.defaults || {};
-  config.models = config.models || {};
-  config.models.providers = config.models.providers || {};
+  config.agent = config.agent || {};
   config.channels = config.channels || {};
   config.gateway = config.gateway || {};
 
-  // --- LLM Providers ---
-  const providers = [
-    { env: 'OPENROUTER_API_KEY', name: 'openrouter' },
-    { env: 'GROQ_API_KEY', name: 'groq' },
-    { env: 'TOGETHER_API_KEY', name: 'together' },
-    { env: 'VENICE_API_KEY', name: 'venice' },
-    { env: 'GOOGLE_AI_API_KEY', name: 'google' },
-    { env: 'MISTRAL_API_KEY', name: 'mistral' },
-    { env: 'OPENAI_API_KEY', name: 'openai' },
-    { env: 'ANTHROPIC_API_KEY', name: 'anthropic' },
-    { env: 'XAI_API_KEY', name: 'xai' },
-    { env: 'DEEPSEEK_API_KEY', name: 'deepseek' },
-    { env: 'CLOUDFLARE_API_KEY', name: 'cloudflare' },
-  ];
-
-  for (const { env, name } of providers) {
-    const key = process.env[env];
-    if (key) {
-      config.models.providers[name] = config.models.providers[name] || {};
-      config.models.providers[name].apiKey = key;
-    }
-  }
-
-  // Generic fallback
-  if (process.env.LLM_API_KEY && !Object.keys(config.models.providers).length) {
-    config.models.providers.default = { apiKey: process.env.LLM_API_KEY };
-  }
-
-  // --- Model Selection ---
+  // --- LLM Provider (just set the API key, OpenClaw auto-detects) ---
+  // OpenClaw reads standard env vars directly, but we can set model if specified
   if (process.env.LLM_PRIMARY_MODEL) {
-    config.agents.defaults.model = config.agents.defaults.model || {};
-    config.agents.defaults.model.primary = process.env.LLM_PRIMARY_MODEL;
-  }
-
-  if (process.env.LLM_HEARTBEAT_MODEL) {
-    config.agents.defaults.heartbeat = config.agents.defaults.heartbeat || {};
-    config.agents.defaults.heartbeat.model = process.env.LLM_HEARTBEAT_MODEL;
-  }
-
-  if (process.env.LLM_SUBAGENT_MODEL) {
-    config.agents.defaults.subagents = config.agents.defaults.subagents || {};
-    config.agents.defaults.subagents.model = process.env.LLM_SUBAGENT_MODEL;
+    config.agent.model = config.agent.model || {};
+    config.agent.model.primary = process.env.LLM_PRIMARY_MODEL;
   }
 
   if (process.env.LLM_FALLBACK_MODELS) {
-    config.agents.defaults.model = config.agents.defaults.model || {};
-    config.agents.defaults.model.fallbacks = process.env.LLM_FALLBACK_MODELS.split(',').map(s => s.trim());
+    config.agent.model = config.agent.model || {};
+    config.agent.model.fallbacks = process.env.LLM_FALLBACK_MODELS.split(',').map(s => s.trim());
   }
 
   // --- Telegram ---
@@ -107,15 +43,19 @@ function buildConfig() {
     config.channels.telegram.botToken = process.env.TELEGRAM_BOT_TOKEN;
 
     if (process.env.TELEGRAM_OWNER_ID) {
-      config.channels.telegram.dm = config.channels.telegram.dm || {};
-      config.channels.telegram.dm.allowFrom = config.channels.telegram.dm.allowFrom || [];
       const ownerId = parseInt(process.env.TELEGRAM_OWNER_ID, 10);
-      if (!config.channels.telegram.dm.allowFrom.includes(ownerId)) {
-        config.channels.telegram.dm.allowFrom.push(ownerId);
+      config.channels.telegram.allowFrom = config.channels.telegram.allowFrom || [];
+      if (!config.channels.telegram.allowFrom.includes(ownerId)) {
+        config.channels.telegram.allowFrom.push(ownerId);
       }
-      // If owner is set, use allowlist mode instead of pairing
       config.channels.telegram.dmPolicy = 'allowlist';
+    } else {
+      config.channels.telegram.dmPolicy = 'pairing';
     }
+
+    // Groups require mention by default
+    config.channels.telegram.groups = config.channels.telegram.groups || {};
+    config.channels.telegram.groups['*'] = { requireMention: true };
   }
 
   // --- Discord ---
@@ -131,6 +71,8 @@ function buildConfig() {
         config.channels.discord.dm.allowFrom.push(process.env.DISCORD_OWNER_ID);
       }
       config.channels.discord.dmPolicy = 'allowlist';
+    } else {
+      config.channels.discord.dmPolicy = 'pairing';
     }
   }
 
@@ -151,6 +93,8 @@ function buildConfig() {
         config.channels.slack.dm.allowFrom.push(process.env.SLACK_OWNER_ID);
       }
       config.channels.slack.dmPolicy = 'allowlist';
+    } else {
+      config.channels.slack.dmPolicy = 'pairing';
     }
   }
 
@@ -163,14 +107,14 @@ function buildConfig() {
     config.gateway.auth.token = process.env.GATEWAY_TOKEN;
   }
 
-  // --- Agent Name ---
-  if (process.env.AGENT_NAME) {
-    config.agents.defaults.identity = config.agents.defaults.identity || {};
-    config.agents.defaults.identity.name = process.env.AGENT_NAME;
-  }
-
-  // --- Gateway Mode (required for headless start) ---
+  // Required for headless start
   config.gateway.mode = 'local';
+
+  // --- Agent Identity ---
+  if (process.env.AGENT_NAME) {
+    config.identity = config.identity || {};
+    config.identity.name = process.env.AGENT_NAME;
+  }
 
   return config;
 }
@@ -183,36 +127,19 @@ function main() {
   }
 
   // Check for minimum requirements
-  const hasLLM = [
-    'LLM_API_KEY',
-    'OPENROUTER_API_KEY',
-    'GROQ_API_KEY',
-    'TOGETHER_API_KEY',
-    'VENICE_API_KEY',
-    'GOOGLE_AI_API_KEY',
-    'MISTRAL_API_KEY',
-    'OPENAI_API_KEY',
-    'ANTHROPIC_API_KEY',
-    'XAI_API_KEY',
-    'DEEPSEEK_API_KEY',
-    'CLOUDFLARE_API_KEY',
-  ].some(key => process.env[key]);
-
   const hasChannel = [
     'TELEGRAM_BOT_TOKEN',
     'DISCORD_BOT_TOKEN',
     'SLACK_BOT_TOKEN',
   ].some(key => process.env[key]);
 
-  if (!hasLLM) {
-    console.log('[build-config] WARNING: No LLM provider API key set');
-    console.log('[build-config] Set at least one of: OPENROUTER_API_KEY, GROQ_API_KEY, etc.');
-  }
-
   if (!hasChannel) {
     console.log('[build-config] WARNING: No channel configured');
     console.log('[build-config] Set at least one of: TELEGRAM_BOT_TOKEN, DISCORD_BOT_TOKEN, SLACK_BOT_TOKEN');
   }
+
+  // Note: LLM API keys are read directly by OpenClaw from standard env vars
+  // (ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, etc.)
 
   const config = buildConfig();
 
