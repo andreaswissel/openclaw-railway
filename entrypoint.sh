@@ -53,6 +53,10 @@ start_gateway() {
   chmod 600 "$CONFIG_FILE"
   chown openclaw:openclaw "$CONFIG_FILE"
 
+  # Run doctor --fix to apply any pending migrations
+  echo "[entrypoint] Running doctor --fix..."
+  su openclaw -c "cd /data/workspace && openclaw doctor --fix" || true
+
   # Start gateway in background, streaming logs to stdout/stderr
   su openclaw -c "cd /data/workspace && openclaw gateway run --port 18789 2>&1 | while read line; do echo \"[gateway] \$line\"; done" &
   GATEWAY_PID=$!
