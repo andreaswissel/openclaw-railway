@@ -18,12 +18,17 @@ chown -R openclaw:openclaw /data
 echo "[entrypoint] Data directories ready"
 
 # -----------------------------------------------------------------------------
-# 2. Copy workspace templates (if workspace is empty)
+# 2. Copy workspace templates (only files that don't already exist)
 # -----------------------------------------------------------------------------
-if [ -d "/app/workspace-templates" ] && [ -z "$(ls -A /data/workspace 2>/dev/null)" ]; then
-  echo "[entrypoint] Initializing workspace with templates..."
-  cp -r /app/workspace-templates/* /data/workspace/
-  chown -R openclaw:openclaw /data/workspace
+if [ -d "/app/workspace-templates" ]; then
+  for tmpl in /app/workspace-templates/*; do
+    basename="$(basename "$tmpl")"
+    if [ ! -e "/data/workspace/$basename" ]; then
+      echo "[entrypoint] Copying template: $basename"
+      cp -r "$tmpl" "/data/workspace/$basename"
+      chown -R openclaw:openclaw "/data/workspace/$basename"
+    fi
+  done
 fi
 
 # Copy docs to workspace for agent discovery
