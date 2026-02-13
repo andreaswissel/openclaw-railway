@@ -6,50 +6,47 @@ This document lists all environment variables the template supports. Set these i
 
 You need at least one LLM provider API key for the agent to function.
 
+**Recommended: Start with OpenRouter.** One API key gives you access to models from every major provider (OpenAI, Anthropic, Google, MiniMax, DeepSeek, Meta, and more). No custom config needed — just set the key and pick a model. Get a key at https://openrouter.ai/keys
+
 | Variable | Description |
 |----------|-------------|
+| `OPENROUTER_API_KEY` | **Recommended** — access to all major models via one key |
 | `LLM_API_KEY` | Generic fallback - used if no specific provider key is set |
 
-### Provider-Specific Keys
+### Direct Provider Keys
 
-Set the key for your preferred provider(s). You can set multiple for fallbacks.
+If you prefer to use a provider directly (or need voice transcription), set their key instead. These all work at Tier 0 with just an env var — no SSH needed.
 
-**Major Cloud Providers:**
-| Variable | Provider |
-|----------|----------|
-| `ANTHROPIC_API_KEY` | Anthropic (Claude) |
-| `OPENAI_API_KEY` | OpenAI (GPT) |
-| `GOOGLE_AI_API_KEY` | Google AI Studio (Gemini) |
+| Variable | Provider | Notes |
+|----------|----------|-------|
+| `OPENAI_API_KEY` | OpenAI (GPT) | Also enables voice transcription |
+| `ANTHROPIC_API_KEY` | Anthropic (Claude) | |
+| `GOOGLE_AI_API_KEY` | Google AI Studio (Gemini) | |
+| `GROQ_API_KEY` | Groq | Fast inference, also enables voice transcription |
+| `TOGETHER_API_KEY` | Together AI | |
+| `FIREWORKS_API_KEY` | Fireworks AI | |
+| `DEEPSEEK_API_KEY` | DeepSeek | |
+| `XAI_API_KEY` | xAI (Grok) | |
+| `MISTRAL_API_KEY` | Mistral | |
+| `VENICE_API_KEY` | Venice AI (privacy-focused) | |
+| `CLOUDFLARE_API_KEY` | Cloudflare AI | |
+| `ZAI_API_KEY` | Z.AI | |
+| `KIMI_API_KEY` | Kimi Coding | |
+| `MOONSHOT_API_KEY` | Moonshot AI (Kimi) | |
 
-**Aggregators/Gateways:**
-| Variable | Provider |
-|----------|----------|
-| `OPENROUTER_API_KEY` | OpenRouter (access many models) |
-| `VERCEL_GATEWAY_API_KEY` | Vercel AI Gateway |
+### Providers That Need Custom Config (Tier 2+)
 
-**Fast Inference:**
-| Variable | Provider |
-|----------|----------|
-| `GROQ_API_KEY` | Groq |
-| `TOGETHER_API_KEY` | Together AI |
-| `FIREWORKS_API_KEY` | Fireworks AI |
+These providers require SSH access to configure custom endpoints or complete OAuth flows. They won't work with just an env var at Tier 0.
 
-**Coding-Focused:**
-| Variable | Provider |
-|----------|----------|
-| `ZAI_API_KEY` | Z.AI |
-| `KIMI_API_KEY` | Kimi Coding |
-| `MOONSHOT_API_KEY` | Moonshot AI (Kimi) |
-| `MINIMAX_API_KEY` | MiniMax |
-| `DEEPSEEK_API_KEY` | DeepSeek |
+| Provider | Why |
+|----------|-----|
+| MiniMax (coding plan) | Uses Anthropic-compatible endpoint (`api.minimax.io/anthropic`) — needs `models.providers` custom config |
+| Google Vertex AI | Requires `gcloud` OAuth flow |
+| Google Gemini CLI | Requires device-code OAuth |
+| Qwen Portal | Requires device-code OAuth |
+| GitHub Copilot | Requires token auth flow |
 
-**Other Providers:**
-| Variable | Provider |
-|----------|----------|
-| `XAI_API_KEY` | xAI (Grok) |
-| `MISTRAL_API_KEY` | Mistral |
-| `VENICE_API_KEY` | Venice AI (privacy-focused) |
-| `CLOUDFLARE_API_KEY` | Cloudflare AI |
+To use these, SSH in at Tier 2+ and configure via `models.providers` in the config. See [Model Providers](https://docs.openclaw.ai/concepts/model-providers) for details.
 
 **AWS Bedrock:**
 | Variable | Description |
@@ -75,7 +72,7 @@ You **must** set `LLM_PRIMARY_MODEL` to match your provider.
 LLM_PRIMARY_MODEL=provider/model-name
 ```
 
-Example: `LLM_PRIMARY_MODEL=groq/llama-3.3-70b-versatile`
+Example: `LLM_PRIMARY_MODEL=openrouter/minimax/MiniMax-M2.5`
 
 ### Finding Model Names
 
@@ -158,11 +155,21 @@ If voice messages aren't being transcribed, your provider likely doesn't support
 
 ## Quick Start Examples
 
-### Minimal (Groq + Telegram)
+### Recommended (OpenRouter + Telegram)
 
 ```
+OPENROUTER_API_KEY=sk-or-...
+LLM_PRIMARY_MODEL=openrouter/minimax/MiniMax-M2.5
+TELEGRAM_BOT_TOKEN=123456:ABC...
+TELEGRAM_OWNER_ID=987654321
+```
+
+### With Voice Support (OpenRouter + Groq for transcription)
+
+```
+OPENROUTER_API_KEY=sk-or-...
 GROQ_API_KEY=gsk_...
-LLM_PRIMARY_MODEL=groq/llama-3.3-70b-versatile
+LLM_PRIMARY_MODEL=openrouter/minimax/MiniMax-M2.5
 TELEGRAM_BOT_TOKEN=123456:ABC...
 TELEGRAM_OWNER_ID=987654321
 ```
@@ -182,7 +189,7 @@ TELEGRAM_OWNER_ID=987654321
 
 ```
 OPENROUTER_API_KEY=sk-or-...
-LLM_PRIMARY_MODEL=openrouter/anthropic/claude-sonnet-4
+LLM_PRIMARY_MODEL=openrouter/minimax/MiniMax-M2.5
 TELEGRAM_BOT_TOKEN=123456:ABC...
 TELEGRAM_OWNER_ID=987654321
 DISCORD_BOT_TOKEN=MTIz...

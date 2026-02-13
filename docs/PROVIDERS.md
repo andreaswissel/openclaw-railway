@@ -2,29 +2,50 @@
 
 Configure your preferred LLM provider via environment variables.
 
-## Setting Up a Provider
+## Recommended: OpenRouter
 
-1. Get an API key from your chosen provider
-2. Set the corresponding environment variable in Railway
-3. Optionally set `LLM_PRIMARY_MODEL` to specify which model to use
+**Start here.** One API key gives you access to models from every major provider — OpenAI, Anthropic, Google, MiniMax, DeepSeek, Meta, Mistral, and more. No custom config, no surprises.
 
-## Supported Providers
+```
+OPENROUTER_API_KEY=sk-or-...
+LLM_PRIMARY_MODEL=openrouter/minimax/MiniMax-M2.5
+```
 
-| Provider | Environment Variable | Example Model Format | Voice |
-|----------|---------------------|---------------------|-------|
-| OpenRouter | `OPENROUTER_API_KEY` | `openrouter/provider/model` | No |
-| Groq | `GROQ_API_KEY` | `groq/model-name` | Yes |
-| Together AI | `TOGETHER_API_KEY` | `together/org/model` | No |
-| Venice AI | `VENICE_API_KEY` | `venice/model-name` | No |
-| Google AI | `GOOGLE_AI_API_KEY` | `google/model-name` | No |
-| Mistral | `MISTRAL_API_KEY` | `mistral/model-name` | No |
-| OpenAI | `OPENAI_API_KEY` | `openai/model-name` | Yes |
-| Anthropic | `ANTHROPIC_API_KEY` | `anthropic/model-name` | No |
-| xAI | `XAI_API_KEY` | `xai/model-name` | No |
-| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek/model-name` | No |
-| Cloudflare | `CLOUDFLARE_API_KEY` | `cloudflare/model-name` | No |
+Get a key at https://openrouter.ai/keys — browse models at https://openrouter.ai/models
+
+## All Supported Providers
+
+These work at Tier 0 with just an environment variable — no SSH or custom config needed.
+
+| Provider | Environment Variable | Example Model Format | Voice | Tier 0 |
+|----------|---------------------|---------------------|-------|--------|
+| OpenRouter | `OPENROUTER_API_KEY` | `openrouter/provider/model` | No | Yes |
+| OpenAI | `OPENAI_API_KEY` | `openai/model-name` | Yes | Yes |
+| Anthropic | `ANTHROPIC_API_KEY` | `anthropic/model-name` | No | Yes |
+| Google AI | `GOOGLE_AI_API_KEY` | `google/model-name` | No | Yes |
+| Groq | `GROQ_API_KEY` | `groq/model-name` | Yes | Yes |
+| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek/model-name` | No | Yes |
+| Together AI | `TOGETHER_API_KEY` | `together/org/model` | No | Yes |
+| Mistral | `MISTRAL_API_KEY` | `mistral/model-name` | No | Yes |
+| xAI | `XAI_API_KEY` | `xai/model-name` | No | Yes |
+| Venice AI | `VENICE_API_KEY` | `venice/model-name` | No | Yes |
+| Cloudflare | `CLOUDFLARE_API_KEY` | `cloudflare/model-name` | No | Yes |
 
 > **Voice column:** Indicates whether the provider supports automatic voice message transcription (e.g., Telegram voice notes). If your primary provider doesn't support voice, add an OpenAI or Groq key alongside it — OpenClaw will use it for transcription automatically. Deepgram (`DEEPGRAM_API_KEY`) also supports voice but is a dedicated transcription service, not a general LLM provider.
+
+## Providers That Need Custom Config (Tier 2+)
+
+Some providers use non-standard endpoints or OAuth flows that can't be configured via environment variables alone. These require SSH access to set up `models.providers` in the config.
+
+| Provider | Issue | Workaround at Tier 0 |
+|----------|-------|---------------------|
+| MiniMax (coding plan) | Uses Anthropic-compatible endpoint at `api.minimax.io/anthropic` | Use via OpenRouter instead |
+| Google Vertex AI | Requires `gcloud` OAuth | Use `GOOGLE_AI_API_KEY` (AI Studio) instead |
+| Google Gemini CLI | Requires device-code OAuth | Use `GOOGLE_AI_API_KEY` (AI Studio) instead |
+| Qwen Portal | Requires device-code OAuth | Use via OpenRouter instead |
+| GitHub Copilot | Requires token auth flow | Use via OpenRouter instead |
+
+At Tier 2+, SSH in and configure these via `models.providers`. See [Model Providers](https://docs.openclaw.ai/concepts/model-providers).
 
 ## Model Configuration
 
@@ -80,9 +101,7 @@ You can set multiple provider API keys. The agent will use whichever provider ma
 
 ## OAuth Providers
 
-Some providers (e.g., Google AI via Vertex, Gemini CLI) use OAuth instead of API keys. These require SSH access to complete the authentication flow (generate URLs, paste redirect codes), so they're only practical at Tier 2+.
-
-API-key providers work at all tiers.
+Some providers require OAuth or interactive login instead of API keys — see the "Providers That Need Custom Config" table above. These require SSH access (Tier 2+). All API-key providers work at Tier 0.
 
 ## Cost Considerations
 
