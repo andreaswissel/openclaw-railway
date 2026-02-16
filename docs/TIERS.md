@@ -33,14 +33,15 @@ Redeploy after changing. The config regenerates automatically.
 - Apply patches and work with images
 
 **What this looks like in practice:**
-- "Help me think through this decision" — agent builds a framework, tracks your reasoning over time
-- "What's the latest on X?" — agent searches the web and summarizes findings
-- "Research competitors in this space" — agent compiles a report from multiple sources
-- "Organize my project notes" — agent creates structured markdown, cross-links ideas
-- "Remember that I decided X because of Y" — agent stores it, finds it semantically later
-- "Set a reminder for tomorrow at 9am" — agent creates a cron job
+- "Remind me to call the dentist Monday at 10am" — cron fires, message appears in Telegram. Done.
+- "Every morning at 7am, give me the weather and my top 3 priorities" — agent searches weather, reads your goals files, delivers a daily briefing automatically.
+- "I need to decide between these two apartments" — agent builds a comparison framework, asks the right questions, saves the analysis. Months later, "why did I pick that apartment?" gets a real answer.
+- "What are the best Italian restaurants near me for a group of 8+?" — agent searches, reads review pages, gives you a shortlist with reasoning instead of 10 blue links.
+- "My landlord says I can't have a dog. Is that enforceable in California?" — agent searches tenant law resources, gives you a grounded answer with sources.
+- "I'm learning Spanish — quiz me on last week's vocabulary" — agent tracks what you've learned, uses spaced repetition, remembers what you struggle with across sessions.
+- You mention your sister's wedding is in June. Three months later, "what do I need to get ready for next month?" — the agent knows about the wedding because it's in memory.
 
-**When this is enough:** You want a thinking partner, research assistant, or personal knowledge base that can look things up on the web and remember things semantically.
+**When this is enough:** You want a thinking partner, research assistant, and personal knowledge base that remembers everything, looks things up, and reminds you about what matters. Most non-technical users will happily live here.
 
 **What's blocked:**
 - Shell commands beyond `ls` (exec allowlisted to `ls` only)
@@ -96,12 +97,13 @@ Everything in Tier 0, plus curated shell commands with user approval.
 - Agent asks for approval on first use of each new command (`ask: on-miss`)
 
 **What this looks like in practice:**
-- "Clone this repo and explain the architecture" — agent runs git, reads code, maps the structure
-- "Find all TODO comments in this project" — agent greps through files
-- "Show me the last 20 lines of this log" — agent runs tail on the file
-- "How many lines of code are in this project?" — agent uses wc and find
+- You drop a CSV export of your expenses into the workspace. "How much did I spend on dining out last month?" — agent reads and processes the file.
+- "Find every time I mentioned pricing in my notes" — agent searches across all your files with exact matching.
+- You accidentally delete something from a note. Agent recovers it from git history — your workspace has version control built in.
+- "Organize these 30 meeting notes by topic and make an index" — agent reads through files, categorizes, builds a structured overview.
+- You export your contacts from your phone as a CSV. "Sort these by last name and remove duplicates" — done.
 
-**When to upgrade from Tier 0:** You're working on code or technical projects and keep wishing the agent could just read files or run basic commands instead of telling you what to run.
+**When to upgrade from Tier 0:** You have files, exports, or data you want the agent to process — spreadsheets, logs, exported lists, large documents. The agent can read and analyze them but can't at Tier 0.
 
 **How to enable:**
 ```
@@ -157,12 +159,14 @@ Everything in Tier 1, plus unrestricted shell, browser, sub-agents, and process 
 - `curl`, `node`, and any other installed binary
 
 **What this looks like in practice:**
-- "Set up this project" — agent clones, installs dependencies, configures
-- "Research these three topics in parallel" — agent spawns sub-agents
-- "Every morning, check my project board and summarize" — agent creates a cron with sub-agent
-- "Browse this documentation site and compile a guide" — agent uses remote browser
+- Morning automation: cron at 6:30am — agent checks weather, reads your calendar via API, summarizes overnight emails, posts the whole briefing to Telegram. You wake up to a personalized daily brief.
+- "Add 'buy milk' to my Todoist" — agent hits the Todoist API. Your chat becomes your task inbox.
+- "Turn off the living room lights" / "Set the thermostat to 72" / "Start the vacuum" — agent sends API calls to Home Assistant, smart plugs, Roborock. One message on Telegram, done.
+- "Research the best credit cards for travel, best travel insurance, and best loyalty programs" — three sub-agents working simultaneously, compiled into one comparison doc.
+- "Every Friday at 5pm, review my weekly notes and give me a reflection prompt" — agent reads your week's writing and asks thoughtful questions, automatically.
+- "Check my email and summarize anything important" — agent hits your email API, reads messages, gives you a digest without opening your inbox.
 
-**When to upgrade from Tier 1:** You're comfortable with what the agent does and want it to work independently — running arbitrary commands, using a browser, or doing parallel work.
+**When to upgrade from Tier 1:** You want the agent to actually *do things* in the world — interact with services, control smart home devices, automate routines, or work on multiple tasks in parallel.
 
 **How to enable:**
 ```
@@ -205,7 +209,7 @@ Everything in Tier 2, plus elevated permissions, node control, and gateway acces
 - Gateway configuration access
 - Everything — no tool restrictions
 
-**When to consider this:** You're running in a fully isolated environment, you understand prompt injection risks, and you need the agent to have unrestricted access. This is for advanced users who are treating the agent as a full system operator.
+**When to consider this:** You need the agent to manage its own infrastructure, orchestrate multiple specialized agents, or have completely unrestricted access. Most users never need this tier.
 
 **How to enable:**
 

@@ -135,10 +135,11 @@ If config resets after a redeploy but the checkboxes above show a previous progr
 ### Transition: Tier 0 → Tier 1 (Capable Agent)
 
 **Ceiling signals:**
-- User asks you to read a specific file and you can't (beyond what `read` tool provides)
-- User wants you to check git status, grep for something, or count lines
-- User copies terminal output into chat for you to process
-- Pattern: "Can you just run..." / "Check what's in that file" / "How many..."
+- User drops a CSV, spreadsheet export, or data file and wants you to process it
+- User has scattered files they want organized, searched, or consolidated
+- User wants to find something specific across many notes or documents
+- User asks you to sort, count, deduplicate, or analyze file contents
+- Pattern: "Can you read this file?" / "How many X are in this?" / "Find every time I mentioned..."
 
 **Prerequisites to discuss:**
 
@@ -172,25 +173,26 @@ Tell the user:
 ### Transition: Tier 1 → Tier 2 (Power User)
 
 **Ceiling signals:**
-- User wants you to install something, run curl, or use node
-- User wants parallel research or sub-agents
-- User wants browser automation
-- User wants you to manage processes
-- Pattern: "Can you install..." / "Run these in parallel" / "Browse this page" / "Set up a cron that..."
+- User wants you to check their email, calendar, or other external service via API
+- User wants smart home control (lights, thermostat, vacuum, etc.)
+- User wants automated routines (morning briefing, email digest, monitoring)
+- User wants parallel research across multiple topics simultaneously
+- User wants you to interact with a web app that doesn't have an API
+- Pattern: "Can you check my email?" / "Turn off the lights" / "Research these three things at once" / "Do this every morning"
 
 **Prerequisites to discuss:**
 
-*Full exec risks:*
-> At Tier 2, I can run any command in the container — not just the curated list. `ask: on-miss` still prompts me for approval the first time I use a new command, but after that it runs freely. This means real-world consequences: package installs, network requests, file modifications.
+*What Tier 2 unlocks:*
+> At Tier 2, I can interact with external services — your email, calendar, smart home, and other APIs. I can also run any program on the server, not just the curated list. The first time I try something new, I'll ask for your approval.
 
-*Sub-agent permission inheritance:*
-> When I spawn sub-agents for parallel work, they inherit my permissions. If I can run any command, so can they. The trust surface multiplies with each sub-agent.
+*Real-world consequences:*
+> This means I can actually *do things* — send emails, control devices, make API calls. If I make a mistake, it has real effects. I'll always confirm before taking actions that can't be undone.
 
-*Browser automation:*
-> Browser tools use a remote browser service (not local Chromium). The pages I visit could contain prompt injection. I'll be careful with unfamiliar URLs.
+*Parallel work and cost:*
+> I can work on multiple things at once by spawning helper agents. This is powerful but costs more — running three research tasks in parallel uses roughly 3x the tokens of a single task. Make sure your provider budget can handle it.
 
-*Cost implications:*
-> Sub-agents and browser sessions consume LLM tokens. Running three sub-agents in parallel costs roughly 3x a single request. Make sure your provider budget can handle it.
+*Browser:*
+> I can navigate websites using a remote browser service. This lets me interact with web apps that don't have APIs, but web pages could contain hidden instructions aimed at me. I'll be careful with unfamiliar URLs.
 
 **Upgrade walkthrough:**
 
@@ -208,7 +210,7 @@ Tell the user:
 
 **Post-upgrade verification:**
 - Re-probe: attempt `curl --version` and check for `sessions_spawn`
-- If both work, confirm: "Power user mode is active. I have full shell access, can spawn sub-agents, and browser tools are available."
+- If both work, confirm: "Power user mode is active. I can now interact with external services, run automation, and work on multiple things in parallel."
 - Update state tracker checkboxes
 
 ---

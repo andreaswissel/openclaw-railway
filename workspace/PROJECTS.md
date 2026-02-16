@@ -4,6 +4,14 @@ This file is your reference for what to suggest when getting to know someone new
 
 Read their cues from Phase 2 of your bootstrap conversation. Match the project to what they actually care about.
 
+**Important:** Only suggest projects that work at your current tier. Don't dangle capabilities the user doesn't have — that's upselling, not helping. If they need a higher tier, they'll hit the ceiling naturally.
+
+---
+
+# Tier 0 — Personal Assistant Projects
+
+These all work out of the box. No upgrades needed.
+
 ---
 
 ## For the Busy Professional
@@ -96,18 +104,156 @@ They read something interesting and want to capture it. You maintain `reading/` 
 
 ---
 
+# Tier 1 — Capable Agent Projects
+
+These require `SECURITY_TIER=1`. Only suggest if the user is already at Tier 1, or if they've hit the ceiling on a Tier 0 project and need file processing.
+
+---
+
+## For the Organizer
+
+### Expense Tracker from Exports
+
+They export their bank statement or credit card transactions as a CSV and drop it in the workspace. You read it, categorize spending, identify trends. "You spent $340 on subscriptions last month — that's up 20% from the month before. Want me to list them all?" Over time, you track month-over-month patterns and flag anomalies.
+
+**First message from them:** "I want to get a handle on my spending" or "Here's my bank export"
+**What you do:** Read the CSV with `cat`, process with `sort`/`uniq`/`wc`. Create `finances/YYYY-MM-summary.md`. Track month-over-month trends in `finances/trends.md`.
+
+### Contact List Cleanup
+
+They export contacts from their phone, email, or CRM. Hundreds or thousands of entries, many duplicates, outdated info, no organization. You sort, deduplicate, categorize, and create a clean index.
+
+**First message from them:** "I have a mess of contacts" or "Can you clean up this list?"
+**What you do:** Read the export, `sort` by name, find duplicates with `uniq`, create `contacts/cleaned.md` with a categorized list. Flag entries with missing info.
+
+---
+
+## For the Data-Curious
+
+### Reading & Viewing Log with Stats
+
+They track what they read and watch. But instead of just listing titles, you process the data — how many books this year? Average per month? Genre breakdown? Longest streak? You maintain `reading/` with entries and periodically run the numbers.
+
+**First message from them:** "I want to track my reading this year" or "I watch too much TV"
+**What you do:** Maintain `reading/log.md` with entries. Use `grep`/`wc`/`sort` to generate stats. Offer monthly and quarterly reports.
+
+### Meeting Notes Consolidator
+
+They have dozens of meeting notes scattered across their workspace. You read through all of them, extract action items, build a topic index, identify decisions that were made, and flag things that were discussed but never resolved.
+
+**First message from them:** "I have months of meeting notes and can't find anything"
+**What you do:** `find` all note files, `grep` for action items and decisions, build `meetings/index.md` with topics and cross-references. Flag unresolved items.
+
+---
+
+## For the Collector
+
+### Recipe Organizer
+
+They have recipes everywhere — screenshots, bookmarks, notes, messages. You consolidate them into `recipes/` with a structured format: ingredients, steps, source, their notes. Build an index by cuisine, difficulty, prep time. They can ask "what can I make with chicken and rice?" and you search semantically.
+
+**First message from them:** "I have recipes all over the place" or "What should I cook tonight?"
+**What you do:** Create `recipes/dish-name.md` for each. Build `recipes/index.md` by category. Use `grep` and `memory_search` to find recipes by ingredient or mood.
+
+### Wine / Coffee / Tea Tasting Log
+
+They're into something collectible. You maintain a detailed log with tasting notes, ratings, sources, prices. Over time, you identify their preferences — "You consistently rate wines from Willamette Valley higher than Napa. You prefer medium-body reds with earthy notes." The insight comes from the data, not individual entries.
+
+**First message from them:** "I'm getting into wine" or "I want to track what I'm drinking"
+**What you do:** Create `tasting/entry-name.md` with structured notes. Use `sort`/`grep` to analyze patterns. Offer periodic taste profile reports.
+
+---
+
+# Tier 2 — Power User Projects
+
+These require `SECURITY_TIER=2`. Only suggest if the user is already at Tier 2. These projects involve the agent interacting with external services, automating routines, or doing parallel work.
+
+---
+
+## For the Busy Professional
+
+### Morning Briefing Automation
+
+A fully automated daily briefing delivered to their chat every morning. The agent checks weather via API, reads their calendar, summarizes overnight emails, checks news on topics they care about, and compiles it all into one message. They wake up to a personalized start to their day.
+
+**First message from them:** "I waste too much time getting oriented in the morning" or "I wish someone would just tell me what I need to know"
+**What you do:** Set up a cron job that fires at their preferred time. Use `curl` for weather and calendar APIs. Use `web_search` for news. Compile into a structured message. Refine the format based on their feedback.
+
+### Email Triage Assistant
+
+Agent checks their email via API periodically and categorizes messages: urgent, needs reply, FYI, spam. Delivers a digest to Telegram instead of them opening their inbox. They reply to the agent with "reply to #3 with: sounds good, Tuesday works" and the agent sends it.
+
+**First message from them:** "My inbox is out of control" or "I spend too long on email"
+**What you do:** Set up email API access (app password or OAuth). Create a cron for periodic checks. Deliver categorized digests. Handle simple replies via API.
+
+---
+
+## For the Home Operator
+
+### Smart Home Voice Control
+
+Their chat becomes a remote control for their home. Lights, thermostat, vacuum, locks, cameras — anything connected to Home Assistant or similar. "Set the thermostat to 68" / "Turn off all the lights" / "Start the vacuum in the kitchen." One message, done.
+
+**First message from them:** "I have a smart home setup" or "Can you control my lights?"
+**What you do:** Set up Home Assistant API integration. Map their devices. Handle natural language commands by translating to API calls.
+
+### Grocery & Meal Planning
+
+Agent plans meals for the week based on their preferences, dietary restrictions, and what's in season. Generates a shopping list. At Tier 2, can even check prices or place orders through supported grocery APIs.
+
+**First message from them:** "I never know what to cook" or "Help me plan meals this week"
+**What you do:** Maintain `meals/preferences.md` with dietary info. Generate weekly plans in `meals/YYYY-WNN.md`. Use `web_search` for recipes. Create shopping lists. Optionally integrate with grocery service APIs.
+
+---
+
+## For the Researcher
+
+### Parallel Deep Research
+
+They have a complex question that needs multiple angles explored simultaneously. Agent spawns sub-agents — one researches the market, one reads academic papers, one checks competitor offerings — and compiles everything into a single structured report.
+
+**First message from them:** "I need to research X from multiple angles" or "Compare these options thoroughly"
+**What you do:** Break the research into 2-4 parallel tracks. Spawn sub-agents for each. Compile results into `research/topic/report.md` with sections from each angle.
+
+### Automated Topic Monitoring
+
+Agent monitors specific topics, competitors, or keywords across the web on a schedule. Daily or weekly, it searches for new developments, reads relevant pages, and delivers a summary. Like a personalized news feed that gets smarter over time.
+
+**First message from them:** "I need to stay on top of X" or "Watch this competitor for me"
+**What you do:** Set up cron jobs for periodic `web_search` + `web_fetch`. Maintain `monitoring/topic/` with dated summaries. Flag significant changes or developments.
+
+---
+
 ## How to Offer
 
 Don't say "I have a list of project ideas." Don't present options. Listen to what they're actually talking about, then offer the one that fits:
 
-- They mention being overwhelmed? Multi-project organizer.
-- They're making a big decision? Decision journal.
-- They want to write more? Writing partner.
-- They're learning something? Learning log.
-- They mention a relationship or upcoming meeting? Relationship memory.
-- They seem reflective? Weekly reflection.
-- They have scattered ideas? Knowledge base.
+**Tier 0 cues:**
+- They mention being overwhelmed → Multi-project organizer
+- They're making a big decision → Decision journal
+- They want to write more → Writing partner
+- They're learning something → Learning log
+- They mention a relationship or upcoming meeting → Relationship memory
+- They seem reflective → Weekly reflection
+- They have scattered ideas → Knowledge base
+- They mention health, food, or energy → Health journal
+
+**Tier 1 cues:**
+- They mention a messy spreadsheet or export → Expense tracker, contact cleanup
+- They have scattered files to organize → Meeting notes consolidator
+- They're into a hobby with collectible items → Tasting log, recipe organizer
+- They want stats on something they track → Reading/viewing log
+
+**Tier 2 cues:**
+- They complain about mornings or getting oriented → Morning briefing
+- They're drowning in email → Email triage
+- They have a smart home → Smart home control
+- They never know what to cook → Meal planning
+- They need to research something complex → Parallel deep research
+- They need to monitor a topic or competitor → Automated monitoring
 
 Frame it as *their* project, not your feature: "Want me to start tracking that for you? I can keep a running log and look for patterns over time."
+
+**Critical rule:** Only suggest projects that work at your current tier. If you're at Tier 0, don't mention Tier 1 or 2 projects. If someone's need would require a higher tier, you'll discover that naturally when you try to help and hit the ceiling. That's when `PROGRESSION.md` kicks in.
 
 If nothing fits naturally, don't force it. Just be present. The right project will emerge.
