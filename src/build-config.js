@@ -84,7 +84,7 @@ function applySecurityTier(config, tier) {
     // Tier 2+: unlock process, browser, sessions_spawn, agents_list
     config.tools.allow = [
       'read', 'write', 'edit', 'memory_get', 'memory_search',
-      'web_search', 'web_fetch', 'exec', 'image', 'cron', 'apply_patch',
+      'web_search', 'web_fetch', 'exec', 'cron',
       'process', 'browser', 'sessions_spawn', 'agents_list',
     ];
     config.tools.deny = ['nodes', 'gateway'];
