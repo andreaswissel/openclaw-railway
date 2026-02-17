@@ -39,6 +39,33 @@ if [ -d "/app/docs" ] && [ ! -d "/data/workspace/docs" ]; then
 fi
 
 # -----------------------------------------------------------------------------
+# 2b. Lock behavioral template files (prevents persistent backdoor)
+#     These files define the agent's safety instructions and personality.
+#     A prompt injection that overwrites AGENTS.md can remove all safety
+#     guardrails — and the change persists across restarts because the
+#     entrypoint skips existing files. Locking them to root-owned read-only
+#     means the agent can read its instructions but can't rewrite them.
+#     Always overwrite from templates to undo any prior tampering.
+# -----------------------------------------------------------------------------
+PROTECTED_TEMPLATES="AGENTS.md TOOLS.md PROGRESSION.md PROJECTS.md"
+for fname in $PROTECTED_TEMPLATES; do
+  src="/app/workspace-templates/$fname"
+  dst="/data/workspace/$fname"
+  if [ -f "$src" ]; then
+    cp "$src" "$dst"
+    chown root:openclaw "$dst"
+    chmod 440 "$dst"
+  fi
+done
+# Docs directory: same treatment
+if [ -d "/app/docs" ]; then
+  cp -r /app/docs /data/workspace/
+  chown -R root:openclaw /data/workspace/docs
+  chmod -R u=rwX,g=rX,o= /data/workspace/docs
+fi
+echo "[entrypoint] Behavioral templates locked (root:openclaw 440)"
+
+# -----------------------------------------------------------------------------
 # 3. Deploy exec-approvals (tier-aware)
 #    Tier 0: ls only, ask off
 #    Tier 1: curated list (cat, grep, git, etc.), ask on-miss
