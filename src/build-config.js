@@ -7,6 +7,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || '/data/.openclaw/openclaw.json';
 const DEFAULTS_PATH = '/app/config/defaults.json';
@@ -118,7 +119,7 @@ function configureEmbeddings(config) {
       model: model,
       remote: {
         baseUrl: 'https://openrouter.ai/api/v1',
-        apiKey: '${OPENROUTER_API_KEY}',
+        apiKey: process.env.OPENROUTER_API_KEY,
       },
     };
     console.log(`[build-config] Embeddings: configured via OpenRouter (model: ${model})`);
@@ -216,7 +217,7 @@ function buildConfig() {
   if (process.env.TELEGRAM_BOT_TOKEN) {
     config.channels.telegram = config.channels.telegram || {};
     config.channels.telegram.enabled = true;
-    config.channels.telegram.botToken = '${TELEGRAM_BOT_TOKEN}';
+    config.channels.telegram.botToken = process.env.TELEGRAM_BOT_TOKEN;
 
     if (process.env.TELEGRAM_OWNER_ID) {
       const ownerId = parseInt(process.env.TELEGRAM_OWNER_ID, 10);
@@ -243,7 +244,7 @@ function buildConfig() {
   if (process.env.DISCORD_BOT_TOKEN) {
     config.channels.discord = config.channels.discord || {};
     config.channels.discord.enabled = true;
-    config.channels.discord.token = '${DISCORD_BOT_TOKEN}';
+    config.channels.discord.token = process.env.DISCORD_BOT_TOKEN;
 
     if (process.env.DISCORD_OWNER_ID) {
       config.channels.discord.dm = config.channels.discord.dm || {};
@@ -261,10 +262,10 @@ function buildConfig() {
   if (process.env.SLACK_BOT_TOKEN) {
     config.channels.slack = config.channels.slack || {};
     config.channels.slack.enabled = true;
-    config.channels.slack.botToken = '${SLACK_BOT_TOKEN}';
+    config.channels.slack.botToken = process.env.SLACK_BOT_TOKEN;
 
     if (process.env.SLACK_APP_TOKEN) {
-      config.channels.slack.appToken = '${SLACK_APP_TOKEN}';
+      config.channels.slack.appToken = process.env.SLACK_APP_TOKEN;
     }
 
     if (process.env.SLACK_OWNER_ID) {
@@ -283,13 +284,24 @@ function buildConfig() {
   config.gateway.bind = 'loopback';
   config.gateway.auth = config.gateway.auth || {};
 
+  const gatewayToken = process.env.GATEWAY_TOKEN || crypto.randomUUID();
   config.gateway.auth.mode = 'token';
-  if (process.env.GATEWAY_TOKEN) {
-    config.gateway.auth.token = '${GATEWAY_TOKEN}';
-  }
+  config.gateway.auth.token = gatewayToken;
 
   // Required for headless start
   config.gateway.mode = 'local';
+
+  // --- Provider Keys in Config ---
+  // Inject provider API keys into config's env block so the gateway reads them
+  // from the config file rather than process.env. This allows the entrypoint to
+  // start the gateway with env -i (empty environment), closing the
+  // /proc/self/environ exfiltration vector at all tiers.
+  config.env = config.env || {};
+  for (const key of LLM_PROVIDERS) {
+    if (process.env[key]) {
+      config.env[key] = process.env[key];
+    }
+  }
 
   // --- Agent Identity ---
   // OpenClaw moved identity under agents.list[] (top-level identity is legacy)

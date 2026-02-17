@@ -111,10 +111,10 @@ echo "[entrypoint] Building config from environment variables..."
 node /app/src/build-config.js
 
 # -----------------------------------------------------------------------------
-# 4b. Harden config file permissions (prevents privilege escalation)
-#     Config: root owns it, openclaw group can read (gateway needs this), but
-#     cannot write. This blocks the attack where the agent overwrites
-#     openclaw.json to grant itself process/browser/nodes tools.
+# 4b. Harden config file permissions (pre-gateway)
+#     Config starts at 640 root:openclaw so the gateway can read it at startup.
+#     After the gateway loads it into memory, step 5 locks it to 600 root:root
+#     so even exec cat can't read it.
 # -----------------------------------------------------------------------------
 if [ -f "$CONFIG_FILE" ]; then
   chown root:openclaw "$CONFIG_FILE"
@@ -124,7 +124,7 @@ if [ -f "$CONFIG_FILE" ]; then
   chown root:openclaw /data/.openclaw
   chmod 750 /data/.openclaw
 
-  echo "[entrypoint] Config hardened (root:openclaw 640)"
+  echo "[entrypoint] Config set to 640 (gateway will read, then locked to 600)"
 fi
 
 # Exec-approvals: root owns it, but gateway needs read+write at runtime
@@ -143,14 +143,11 @@ if [ -f "$APPROVALS_HOME" ]; then
 fi
 
 # -----------------------------------------------------------------------------
-# 4c. Scrub non-essential secrets from environment
-#     Gateway reads provider keys at runtime (must stay), but these were only
-#     needed by build-config.js and can be safely removed.
+# 4c. Env var notes
+#     All secrets are now inlined in openclaw.json (which is locked after
+#     gateway loads it). The gateway starts with env -i so /proc/self/environ
+#     is empty. No env var scrubbing needed — they never reach the gateway.
 # -----------------------------------------------------------------------------
-# GATEWAY_TOKEN stays — gateway needs it for ${GATEWAY_TOKEN} interpolation
-unset SETUP_PASSWORD 2>/dev/null || true
-unset SECURITY_TIER 2>/dev/null || true
-echo "[entrypoint] Scrubbed consumed env vars"
 
 # -----------------------------------------------------------------------------
 # 5. Start OpenClaw gateway (if configured)
@@ -158,14 +155,30 @@ echo "[entrypoint] Scrubbed consumed env vars"
 start_gateway() {
   echo "[entrypoint] Starting gateway..."
 
-  # Start gateway in background, streaming logs to stdout/stderr
-  su openclaw -c "cd /data/workspace && openclaw gateway run --port 18789 2>&1 | while read line; do echo \"[gateway] \$line\"; done" &
+  # Start gateway with empty environment (env -i). All secrets are in the
+  # config file — the gateway reads them at startup, not from process.env.
+  # This means /proc/self/environ for the gateway process contains nothing
+  # sensitive, closing the exec-based exfiltration vector at all tiers.
+  env -i \
+    HOME=/home/openclaw \
+    PATH=/usr/local/bin:/usr/bin:/bin \
+    OPENCLAW_STATE_DIR=/data/.openclaw \
+    NODE_ENV=production \
+    su openclaw -c "cd /data/workspace && openclaw gateway run --port 18789 2>&1 | while read line; do echo \"[gateway] \$line\"; done" &
   GATEWAY_PID=$!
 
   sleep 3
 
   if kill -0 $GATEWAY_PID 2>/dev/null; then
     echo "[entrypoint] Gateway running (PID: $GATEWAY_PID)"
+
+    # Lock config to root-only now that gateway has loaded it into memory.
+    # The gateway doesn't re-read the file after startup, so this is safe.
+    # This blocks exec-based reads (cat /data/.openclaw/openclaw.json) at
+    # all tiers — the openclaw user gets Permission denied.
+    chmod 600 "$CONFIG_FILE"
+    chown root:root "$CONFIG_FILE"
+    echo "[entrypoint] Config locked to root-only (600) after gateway loaded"
   else
     echo "[entrypoint] ERROR: Gateway exited immediately"
     exit 1
