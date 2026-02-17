@@ -367,12 +367,19 @@ function main() {
   const debugConfig = JSON.parse(JSON.stringify(config));
   for (const ch of Object.values(debugConfig.channels || {})) {
     if (ch.botToken) ch.botToken = '[REDACTED]';
+    if (ch.token) ch.token = '[REDACTED]';
+    if (ch.appToken) ch.appToken = '[REDACTED]';
   }
   if (debugConfig.gateway?.auth?.token) {
     debugConfig.gateway.auth.token = '[REDACTED]';
   }
   if (debugConfig.agents?.defaults?.memorySearch?.remote?.apiKey) {
     debugConfig.agents.defaults.memorySearch.remote.apiKey = '[REDACTED]';
+  }
+  if (debugConfig.env) {
+    for (const key of Object.keys(debugConfig.env)) {
+      debugConfig.env[key] = '[REDACTED]';
+    }
   }
   console.log('[build-config] Full config:', JSON.stringify(debugConfig, null, 2));
 }
