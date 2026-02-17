@@ -119,7 +119,7 @@ function configureEmbeddings(config) {
       model: model,
       remote: {
         baseUrl: 'https://openrouter.ai/api/v1',
-        apiKey: process.env.OPENROUTER_API_KEY,
+        apiKey: '${OPENROUTER_API_KEY}',
       },
     };
     console.log(`[build-config] Embeddings: configured via OpenRouter (model: ${model})`);
@@ -217,7 +217,7 @@ function buildConfig() {
   if (process.env.TELEGRAM_BOT_TOKEN) {
     config.channels.telegram = config.channels.telegram || {};
     config.channels.telegram.enabled = true;
-    config.channels.telegram.botToken = process.env.TELEGRAM_BOT_TOKEN;
+    config.channels.telegram.botToken = '${TELEGRAM_BOT_TOKEN}';
 
     if (process.env.TELEGRAM_OWNER_ID) {
       const ownerId = parseInt(process.env.TELEGRAM_OWNER_ID, 10);
@@ -244,7 +244,7 @@ function buildConfig() {
   if (process.env.DISCORD_BOT_TOKEN) {
     config.channels.discord = config.channels.discord || {};
     config.channels.discord.enabled = true;
-    config.channels.discord.token = process.env.DISCORD_BOT_TOKEN;
+    config.channels.discord.token = '${DISCORD_BOT_TOKEN}';
 
     if (process.env.DISCORD_OWNER_ID) {
       config.channels.discord.dm = config.channels.discord.dm || {};
@@ -262,10 +262,10 @@ function buildConfig() {
   if (process.env.SLACK_BOT_TOKEN) {
     config.channels.slack = config.channels.slack || {};
     config.channels.slack.enabled = true;
-    config.channels.slack.botToken = process.env.SLACK_BOT_TOKEN;
+    config.channels.slack.botToken = '${SLACK_BOT_TOKEN}';
 
     if (process.env.SLACK_APP_TOKEN) {
-      config.channels.slack.appToken = process.env.SLACK_APP_TOKEN;
+      config.channels.slack.appToken = '${SLACK_APP_TOKEN}';
     }
 
     if (process.env.SLACK_OWNER_ID) {
@@ -285,9 +285,13 @@ function buildConfig() {
   config.gateway.auth = config.gateway.auth || {};
 
   // Generate a random token if none provided (required for token auth mode)
-  const gatewayToken = process.env.GATEWAY_TOKEN || crypto.randomUUID();
   config.gateway.auth.mode = 'token';
-  config.gateway.auth.token = gatewayToken;
+  if (process.env.GATEWAY_TOKEN) {
+    config.gateway.auth.token = '${GATEWAY_TOKEN}';
+  } else {
+    // No env var to interpolate — generate a random token inline
+    config.gateway.auth.token = crypto.randomUUID();
+  }
 
   // Required for headless start
   config.gateway.mode = 'local';
