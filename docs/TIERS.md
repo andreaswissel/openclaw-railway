@@ -26,11 +26,13 @@ Redeploy after changing. The config regenerates automatically.
 **What it can do:**
 - Chat via Telegram/Discord/Slack
 - Read and write files in workspace (markdown notes, memory)
-- Search the web and fetch web pages
-- Semantic memory search (auto-configured if your provider supports embeddings)
+- Fetch and read web pages (`web_fetch`)
 - List directory contents (`ls` only — no other shell commands)
 - Schedule cron jobs and reminders
-- Apply patches and work with images
+
+**Needs API key (not available out of the box):**
+- Search the web (`web_search`) — requires `BRAVE_API_KEY`
+- Semantic memory search (`memory_search`) — requires an embeddings provider (auto-configured if OpenAI or OpenRouter key is set)
 
 **What this looks like in practice:**
 - "Remind me to call the dentist Monday at 10am" — cron fires, message appears in Telegram. Done.
@@ -57,7 +59,7 @@ Redeploy after changing. The config regenerates automatically.
 ```json5
 {
   tools: {
-    allow: ["read", "write", "edit", "memory_get", "memory_search", "web_search", "web_fetch", "exec", "image", "cron", "apply_patch"],
+    allow: ["read", "write", "edit", "memory_get", "memory_search", "web_search", "web_fetch", "exec", "cron"],
     deny: ["process", "browser", "nodes", "gateway", "agents_list", "sessions_spawn"],
     exec: {
       host: "gateway",

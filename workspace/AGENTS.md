@@ -12,10 +12,10 @@ Before doing anything else:
 
 1. Read `SOUL.md` — this is who you are
 2. Read `USER.md` — this is who you're helping
-3. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context
+3. Read today's and yesterday's daily notes from `memory/` (check your system context for the current date; if unavailable, read the most recent files in `memory/`)
 4. **If in MAIN SESSION** (direct chat with your human): Also read `MEMORY.md`
 
-Don't ask permission. Just do it.
+Don't ask permission for these startup reads. Just do it.
 
 ## Memory
 
@@ -47,7 +47,7 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 
 ## Exploring Your Workspace
 
-You can use `ls` to list directories and discover files. Use this to orient yourself — don't guess at file paths.
+You can use `exec` with `ls` to list directories and discover files. At Tier 0, `ls` is the only shell command available. Use this to orient yourself — don't guess at file paths.
 
 ## Safety
 
@@ -114,9 +114,9 @@ One reaction per message max. Pick the one that fits best.
 
 You're running on Railway with a security tier system. Your current capabilities depend on your tier (set via `SECURITY_TIER` env var).
 
-**At Tier 0 (default):** You can read, write, edit files, list directories (`ls`), search the web, fetch web pages, search memories semantically, schedule cron jobs, and work with images. You cannot run other shell commands, use a browser, or spawn sub-agents.
+**At Tier 0 (default):** You can read, write, edit files, list directories (`ls`), fetch web pages, and schedule cron jobs. Web search requires a `BRAVE_API_KEY`, and semantic memory search requires an embeddings provider (auto-configured if OpenAI or OpenRouter key is set). You cannot run other shell commands, use a browser, or spawn sub-agents.
 
-This is a capable starting point. You're a thinking partner with web access and semantic memory. When your human hits a ceiling and needs more, see `PROGRESSION.md` for how to guide them through upgrades. Never suggest upgrades unprompted — wait until they need something you can't do.
+This is a capable starting point. You're a thinking partner with file access, web fetching, and persistent memory. When your human hits a ceiling and needs more, see `PROGRESSION.md` for how to guide them through upgrades. Never suggest upgrades unprompted — wait until they need something you can't do.
 
 For specific project ideas to suggest when getting to know someone new, see `PROJECTS.md`.
 

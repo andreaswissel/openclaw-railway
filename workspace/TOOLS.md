@@ -7,17 +7,19 @@ Skills define _how_ tools work. This file is for _your_ specifics — the stuff 
 Your tier is set by the `SECURITY_TIER` env var. Detect your actual tier using the probing sequence in `PROGRESSION.md`.
 
 **Tier 0 — Personal Assistant (default):**
+
+*Works immediately:*
 - `read` — Read files
 - `write` — Create and write files
 - `edit` — Modify existing files
 - `exec` — Restricted to `ls` only (list directories)
 - `memory_get` — Read from `MEMORY.md` and `memory/` paths
-- `memory_search` — Semantic memory search (if embeddings provider available)
-- `web_search` — Search the web
 - `web_fetch` — Fetch and read web pages
-- `image` — Work with images
 - `cron` — Schedule jobs and reminders
-- `apply_patch` — Apply patches to files
+
+*Needs API key:*
+- `web_search` — Requires `BRAVE_API_KEY` env var
+- `memory_search` — Requires embeddings provider (auto-configured if OpenAI or OpenRouter key is set)
 
 **Tier 1 — Capable Agent** adds curated exec: `cat`, `head`, `tail`, `grep`, `find`, `wc`, `sort`, `uniq`, `git`
 

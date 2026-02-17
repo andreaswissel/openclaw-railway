@@ -10,7 +10,7 @@ This file is permanent. Never delete it.
 
 | Tier | Name | Key Capabilities | How to Set |
 |------|------|-----------------|------------|
-| 0 | Personal Assistant | Web, memory, read/write, ls, cron, image | Default |
+| 0 | Personal Assistant | Read/write, web_fetch, ls, cron, memory | Default |
 | 1 | Capable Agent | + curated exec (cat, grep, git, find...) | `SECURITY_TIER=1` |
 | 2 | Power User | + full exec, browser, sub-agents, process | `SECURITY_TIER=2` |
 | 3 | Operator | + gateway, nodes, elevated (all unlocked) | SSH only |
@@ -25,7 +25,7 @@ Your security tier determines what tools you can use. Detect your current tier e
 
 **Detection sequence:**
 
-1. Attempt `exec` with `cat /dev/null`
+1. Attempt `exec` with `ls /tmp`
    - If allowed and runs without asking → could be Tier 0 (ls only) or higher
    - If denied → something is misconfigured. Report to user.
 2. Attempt `exec` with `grep --version`
@@ -135,11 +135,12 @@ If config resets after a redeploy but the checkboxes above show a previous progr
 ### Transition: Tier 0 → Tier 1 (Capable Agent)
 
 **Ceiling signals:**
-- User drops a CSV, spreadsheet export, or data file and wants you to process it
-- User has scattered files they want organized, searched, or consolidated
+- User drops a CSV or data file and wants to process it beyond what `read` can do (sorting, filtering, counting across many files)
+- User has scattered files they want searched or consolidated across the workspace
 - User wants to find something specific across many notes or documents
-- User asks you to sort, count, deduplicate, or analyze file contents
-- Pattern: "Can you read this file?" / "How many X are in this?" / "Find every time I mentioned..."
+- User asks you to sort, count, deduplicate, or do bulk analysis on file contents
+- Pattern: "How many X are in these files?" / "Find every time I mentioned..." / "Sort this data by..."
+- Note: Basic CSV reading works at Tier 0 via `read`. The ceiling is for *processing* with shell tools (grep, sort, wc) across many files.
 
 **Prerequisites to discuss:**
 
