@@ -48,7 +48,7 @@ OpenClaw's Docker-based filesystem sandbox (`tools.fs` blocklist) is not availab
 | `/data/.openclaw/openclaw.json` | root:openclaw | 640 | Yes (gateway needs this) | **No** |
 | `/data/.openclaw/` directory | root:openclaw | 750 | Traverse only | **No** (can't create files) |
 | `/home/openclaw/.openclaw/` | root:openclaw | 750 | Traverse only | **No** |
-| `exec-approvals.json` | root:openclaw | 640 | Yes | **No** |
+| `exec-approvals.json` | root:openclaw | 660 | Yes | Yes (gateway needs write for metadata) |
 | `/data/workspace/` | openclaw:openclaw | 755 | Yes | Yes |
 | `/proc/self/environ` | (process UID) | 400 | Yes (known limitation) | No |
 

@@ -222,7 +222,7 @@ The entrypoint hardens file ownership after generating config. The agent's `read
 |-----------------|-----|
 | `openclaw.json` (config) | `root:openclaw 640` — agent can read, **cannot write** |
 | `.openclaw/` directories | `root:openclaw 750` — agent cannot create new files |
-| `exec-approvals.json` | `root:openclaw 640` — agent cannot overwrite |
+| `exec-approvals.json` | `root:openclaw 660` — gateway needs write for metadata updates |
 | Non-essential env vars | Scrubbed from environment after config generation |
 
 This blocks the critical privilege escalation where an agent overwrites `openclaw.json` to grant itself blocked tools (process, browser, nodes).
