@@ -89,6 +89,22 @@ fi
 
 mkdir -p "$RESULTS_DIR"
 
+# ── Model Override ───────────────────────────────────────────────────
+# Uses `openclaw models set` for runtime model swapping (no restart needed).
+if [[ -n "$MODEL_OVERRIDE" ]]; then
+  echo -e "${DIM}Setting model to ${MODEL_OVERRIDE}...${RESET}"
+  if [[ "$TARGET" == "railway" ]]; then
+    railway ssh -- "openclaw models set \"${MODEL_OVERRIDE}\"" >/dev/null 2>&1
+  else
+    docker exec "$CONTAINER" sh -c "openclaw models set \"${MODEL_OVERRIDE}\"" >/dev/null 2>&1
+  fi
+  if [[ $? -ne 0 ]]; then
+    echo -e "${RED}ERROR: Failed to set model to ${MODEL_OVERRIDE}${RESET}"
+    exit 1
+  fi
+  echo -e "${DIM}Model set.${RESET}"
+fi
+
 # ── Load Test Cases ──────────────────────────────────────────────────
 TEST_COUNT=$(node -e "
   const tc = JSON.parse(require('fs').readFileSync('$TEST_CASES_FILE', 'utf8'));
@@ -126,19 +142,13 @@ run_agent_command() {
   local escaped_message
   escaped_message=$(printf '%s' "$message" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
-  # Build model flag if override specified
-  local model_flag=""
-  if [[ -n "$MODEL_OVERRIDE" ]]; then
-    model_flag="--model \"${MODEL_OVERRIDE}\""
-  fi
-
   if [[ "$TARGET" == "railway" ]]; then
     railway ssh -- \
-      "openclaw agent --agent main --session-id \"${SESSION_ID}\" ${model_flag} --message \"${escaped_message}\" --json 2>/dev/null" \
+      "openclaw agent --agent main --session-id \"${SESSION_ID}\" --message \"${escaped_message}\" --json 2>/dev/null" \
       >"$tmpfile" 2>/dev/null &
   else
     docker exec "$CONTAINER" \
-      sh -c "openclaw agent --agent main --session-id \"${SESSION_ID}\" ${model_flag} --message \"${escaped_message}\" --json 2>/dev/null" \
+      sh -c "openclaw agent --agent main --session-id \"${SESSION_ID}\" --message \"${escaped_message}\" --json 2>/dev/null" \
       >"$tmpfile" 2>/dev/null &
   fi
   local pid=$!

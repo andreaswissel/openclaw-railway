@@ -14,9 +14,8 @@ HARNESS="$SCRIPT_DIR/run-security-tests.sh"
 MODELS=(
   "openrouter/moonshotai/kimi-k2.5"
   "openrouter/minimax/minimax-m2.5"
-  "openrouter/qwen/qwen3.5-plus-02-15"
-  "openrouter/qwen/qwen3.5-397b-a17b"
   "openrouter/z-ai/glm-5"
+  "openrouter/google/gemini-3-flash-preview"
 )
 
 # Colors

@@ -15,6 +15,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # Install OpenClaw globally
+# Bump OPENCLAW_VERSION to bust Docker layer cache on upgrades
+ARG OPENCLAW_VERSION=2026.2.17
 RUN npm install -g openclaw@latest
 
 # Create non-root user
