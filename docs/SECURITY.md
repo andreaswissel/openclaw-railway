@@ -80,18 +80,18 @@ Behavioral template files (`AGENTS.md`, `TOOLS.md`, `PROGRESSION.md`, `PROJECTS.
 
 ## What Each Blocked Tool Does
 
+These tools are blocked at Tier 0 (default). See [TIERS.md](TIERS.md) for what each tier unlocks.
+
 | Tool | Risk | Why It's Blocked |
 |------|------|------------------|
-| `exec` | Critical | Run arbitrary shell commands |
 | `process` | Critical | Manage background processes, bypass approval |
 | `browser` | High | Access logged-in sessions, run JavaScript |
 | `nodes` | High | Camera/screen capture, device control |
-| `web_search` | Medium | External network access |
-| `web_fetch` | Medium | Fetch arbitrary URLs |
 | `gateway` | Critical | Modify gateway configuration |
 | `agents_list` | Medium | Enumerate other agents |
-| `memory_search` | Low | Semantic search requires embeddings provider |
 | `sessions_spawn` | Medium | Create unlimited subagents |
+
+**Allowed at Tier 0** (with restrictions): `read`, `write`, `edit`, `exec` (ls only), `memory_get`, `memory_search`, `web_search`, `web_fetch`, `cron`.
 
 ## Access Control
 
@@ -157,17 +157,42 @@ Railway's container provides hard boundaries:
 | Risk | Mitigation |
 |------|------------|
 | Prompt injection | Tool policy limits blast radius |
-| API key theft | `workspaceOnly` blocks reads outside workspace; config write-locked; env vars partially scrubbed |
-| Data exfiltration | No network tools by default |
+| API key theft | `workspaceOnly` blocks reads outside workspace; config write-locked; `env -i` on gateway process |
+| Data exfiltration via `web_fetch` | `web_fetch` is GET-only (limits payload size); no URL allowlist exists yet (PR #18584 reverted) |
+| Data exfiltration via `exec` | Exec allowlist at Tiers 0-1; `env -i` prevents env var leaks; OC-09 fix blocks `$VAR` injection |
 | Resource exhaustion | Railway's resource limits apply |
+
+## Upstream Security Hardening (v2026.2.12–2026.2.17)
+
+OpenClaw v2026.2.12 through v2026.2.17 included several security fixes that strengthen this template's defenses. These are built into the base image — no configuration needed.
+
+| Fix | Versions | What It Does |
+|-----|----------|-------------|
+| **OC-09: Exec credential theft** | v2026.2.14, .17 | Blocks `$VAR` injection in exec scripts, fixes `safeBins` shell expansion bypass, removes `node_modules/.bin` from PATH |
+| **SSRF hardening** | v2026.2.12, .13, .14 | `web_fetch` blocks loopback/internal hostnames, IPv4-mapped IPv6 bypass patched, private network blocking |
+| **Session transcript permissions** | v2026.2.14, .17 | New transcripts created with `0o600` (user-only) permissions |
+| **`$include` config traversal** | v2026.2.14, .17 | Config includes confined to config directory, symlink checks hardened |
+| **Sandbox Docker injection** | v2026.2.13, .15 | Blocks dangerous Docker config (bind mounts, host networking) |
+| **High-risk tools via HTTP** | v2026.2.13 | `sessions_spawn` etc. blocked from `/tools/invoke` HTTP endpoint |
+| **`apply_patch` traversal** | v2026.2.14 | Enforces workspace-root path bounds |
+
+**Not yet available:** URL allowlists for `web_fetch`/`web_search` (PR #18584 was reverted). Data exfiltration via `web_fetch` GET parameters remains an open vector — mitigated by behavioral templates.
+
+### Defense-in-Depth Summary
+
+This template combines upstream gateway hardening with its own security layers:
+
+1. **`tools.fs.workspaceOnly: true`** — Blocks file access outside workspace
+2. **`env -i` process isolation** — No secrets in `/proc/self/environ`
+3. **Linux file permissions** — Config 640, dirs 750, behavioral templates 440
+4. **Exec allowlist** — Tier-appropriate command restrictions
+5. **Behavioral templates** — Locked and force-restored on every startup
+6. **Upstream SSRF guards** — Gateway blocks private/internal hostnames
+7. **Upstream OC-09 fix** — Exec env var injection patched at gateway level
 
 ## Unlocking More Capabilities
 
-See [TIERS.md](TIERS.md) for how to progressively enable:
-- Web search (Tier 1)
-- Shell access with allowlist (Tier 2)
-- Automation and subagents (Tier 3)
-- Full trust (Tier 4)
+See [TIERS.md](TIERS.md) for how to progressively enable more agent capabilities.
 
 ## Security Audit
 

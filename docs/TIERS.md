@@ -350,19 +350,23 @@ Delete the volume in Railway dashboard and redeploy. This wipes everything — c
 
 **Tier 0 (web access):**
 - The agent can read any public web page. It cannot log into services or access private content.
+- `web_fetch` blocks private/internal hostnames (SSRF hardening, v2026.2.12+). External URLs are unrestricted.
+- No URL/domain allowlist exists yet — `web_fetch` can reach any public URL. Behavioral templates defend against exfiltration attempts.
 - Be cautious about asking it to visit URLs from untrusted sources — web content can contain prompt injection attempts.
-- The worst case is a confused or misleading response. The agent can't take real-world action based on a malicious page.
+- `web_fetch` is GET-only, limiting exfiltration payload size to URL parameters.
 
 **Tier 1 (curated shell):**
 - The allowlist restricts which commands the agent can run. File-reading binaries (`cat`, `head`, `tail`) are excluded — the `read` tool handles file reading within the workspace sandbox.
 - `ask: on-miss` means the agent prompts for approval before running a new command type.
 - Chaining (`;`, `&&`, `||`) and redirections are blocked.
+- OC-09 fix (v2026.2.14+) blocks `$VAR` injection in exec scripts — defense-in-depth alongside `env -i`.
 
 **Tier 2 (full shell + browser):**
 - The agent can run any command in the container. `ask: on-miss` still requires first-time approval.
 - Sub-agents inherit permissions. If the parent has full exec, so do sub-agents.
 - Browser automation can interact with web pages — be mindful of prompt injection.
 - Never add secrets to workspace files the agent can read.
+- Session transcripts are created with `0o600` permissions (v2026.2.14+).
 
 **Tier 3 (operator):**
 - Prompt injection is your main risk. Any content the agent reads could contain instructions it follows.

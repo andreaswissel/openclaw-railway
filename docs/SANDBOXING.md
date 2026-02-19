@@ -213,6 +213,8 @@ The most important protection. Restricts the agent's `read`, `write`, and `edit`
 
 Any attempt to access files outside `/data/workspace/` is rejected with "Path escapes sandbox root." This blocks reading secrets (`/proc/self/environ`, config files) and writing to security-critical files (`exec-approvals.json`, `openclaw.json`).
 
+**Note:** `exec` bypasses `workspaceOnly` — it operates through the shell, not the filesystem tools. At Tier 0, exec is restricted to `ls` only (metadata). At Tier 1, exec has a curated allowlist. At Tier 2+, exec is unrestricted — the behavioral template is the primary defense against config reads.
+
 ### 2. Tool Policy (openclaw.json)
 
 Controls which tools the agent can use. Configured via `SECURITY_TIER` env var:
@@ -241,6 +243,12 @@ The entrypoint hardens file ownership as a backup layer:
 | `exec-approvals.json` | `root:openclaw 660` — gateway needs write for metadata |
 | Behavioral templates | `root:openclaw 440` — restored from image on every startup |
 | Non-essential env vars | Scrubbed from environment after config generation |
+
+### 4. Upstream SSRF Hardening (built into OpenClaw v2026.2.12+)
+
+The gateway blocks `web_fetch` requests to private/internal hostnames, loopback addresses, and IPv4-mapped IPv6 literals. This is enforced at the gateway level — no configuration needed.
+
+**Not yet available:** URL/domain allowlists for `web_fetch`/`web_search`. A PR was attempted (PR #18584) but reverted in v2026.2.17. Data exfiltration via `web_fetch` GET parameters to external URLs remains possible — mitigated by behavioral templates that instruct the agent to refuse exfiltration requests.
 
 ### Exec Allowlist (exec-approvals.json)
 
