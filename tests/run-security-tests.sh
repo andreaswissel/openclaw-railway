@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEST_CASES_FILE="$SCRIPT_DIR/test-cases.json"
 RESULTS_DIR="$SCRIPT_DIR/results"
 TIMEOUT_SECONDS=120
+SESSION_ID="test-run-$(date +%s)"
 
 # Colors (terminal only, stripped in markdown output)
 RED='\033[0;31m'
@@ -21,6 +22,7 @@ TARGET=""
 CONTAINER=""
 PHASE_FILTER=""
 TEST_FILTER=""
+MODEL_OVERRIDE=""
 
 usage() {
   cat <<EOF
@@ -31,6 +33,7 @@ Options:
   --container <name>          Docker container name (required for docker target)
   --phase <phase>             Filter tests by phase
   --test <id>                 Run a single test by ID
+  --model <model>             Override model for this run (e.g. openrouter/google/gemini-2.0-flash-001)
   -h, --help                  Show this help
 
 Examples:
@@ -38,6 +41,7 @@ Examples:
   $(basename "$0") --target docker --container openclaw-railway-local
   $(basename "$0") --target docker --container openclaw-vanilla --phase security-boundaries
   $(basename "$0") --target railway --test P3-T6
+  $(basename "$0") --target railway --model openrouter/google/gemini-2.0-flash-001
 EOF
   exit 1
 }
@@ -48,6 +52,7 @@ while [[ $# -gt 0 ]]; do
     --container) CONTAINER="$2"; shift 2 ;;
     --phase)     PHASE_FILTER="$2"; shift 2 ;;
     --test)      TEST_FILTER="$2"; shift 2 ;;
+    --model)     MODEL_OVERRIDE="$2"; shift 2 ;;
     -h|--help)   usage ;;
     *)           echo "Unknown option: $1"; usage ;;
   esac
@@ -103,6 +108,8 @@ fi
 echo -e "${BOLD}Security Test Harness${RESET}"
 echo -e "Target:  ${CYAN}$TARGET${RESET}${CONTAINER:+ (container: $CONTAINER)}"
 echo -e "Tests:   ${CYAN}$TEST_COUNT${RESET}${PHASE_FILTER:+ (phase: $PHASE_FILTER)}${TEST_FILTER:+ (test: $TEST_FILTER)}"
+echo -e "Model:   ${CYAN}${MODEL_OVERRIDE:-default}${RESET}"
+echo -e "Session: ${CYAN}$SESSION_ID${RESET} (fresh per run)"
 echo -e "Timeout: ${CYAN}${TIMEOUT_SECONDS}s${RESET} per test"
 echo ""
 
@@ -119,13 +126,19 @@ run_agent_command() {
   local escaped_message
   escaped_message=$(printf '%s' "$message" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
+  # Build model flag if override specified
+  local model_flag=""
+  if [[ -n "$MODEL_OVERRIDE" ]]; then
+    model_flag="--model \"${MODEL_OVERRIDE}\""
+  fi
+
   if [[ "$TARGET" == "railway" ]]; then
     railway ssh -- \
-      "openclaw agent --agent main --message \"${escaped_message}\" --json 2>/dev/null" \
+      "openclaw agent --agent main --session-id \"${SESSION_ID}\" ${model_flag} --message \"${escaped_message}\" --json 2>/dev/null" \
       >"$tmpfile" 2>/dev/null &
   else
     docker exec "$CONTAINER" \
-      sh -c "openclaw agent --agent main --message \"${escaped_message}\" --json 2>/dev/null" \
+      sh -c "openclaw agent --agent main --session-id \"${SESSION_ID}\" ${model_flag} --message \"${escaped_message}\" --json 2>/dev/null" \
       >"$tmpfile" 2>/dev/null &
   fi
   local pid=$!
@@ -227,7 +240,12 @@ classify_result() {
 
 # ── Main Test Loop ────────────────────────────────────────────────────
 TIMESTAMP=$(date '+%Y-%m-%d-%H-%M')
-RESULTS_FILE="$RESULTS_DIR/${TIMESTAMP}-${TARGET}${CONTAINER:+-$CONTAINER}.md"
+# Build filename: timestamp-target[-container][-model].md
+MODEL_SLUG=""
+if [[ -n "$MODEL_OVERRIDE" ]]; then
+  MODEL_SLUG="-$(printf '%s' "$MODEL_OVERRIDE" | tr '/' '-')"
+fi
+RESULTS_FILE="$RESULTS_DIR/${TIMESTAMP}-${TARGET}${CONTAINER:+-$CONTAINER}${MODEL_SLUG}.md"
 DETECTED_MODEL=""
 
 # Accumulate results in arrays (bash 3+ compatible)
@@ -336,10 +354,11 @@ DATESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
   echo ""
   echo "**Date:** $DATESTAMP"
   echo "**Target:** $TARGET${CONTAINER:+ (container: $CONTAINER)}"
-  echo "**Model:** ${DETECTED_MODEL:-_(not detected)_}"
+  echo "**Model override:** ${MODEL_OVERRIDE:-_(none — using deployment default)_}"
+  echo "**Model (detected):** ${DETECTED_MODEL:-_(not detected)_}"
   echo "**Phase filter:** ${PHASE_FILTER:-all}"
   echo "**Test filter:** ${TEST_FILTER:-none}"
-  echo "**Session:** single (sequential, no session reset between tests)"
+  echo "**Session:** \`$SESSION_ID\` (fresh per run, shared across tests within run)"
   echo ""
   echo "## Results"
   echo ""
@@ -361,12 +380,12 @@ DATESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
   echo ""
   echo "## Notes"
   echo ""
-  echo "- **Session contamination:** Tests run sequentially in a single agent session."
+  echo "- **Intra-run contamination:** Tests run sequentially in a single session."
   echo "  Earlier attack probes cause the agent to become progressively more defensive."
   echo "  Later tests may see terse refusals or the agent ignoring the prompt entirely."
-  echo "  UNKNOWN results late in a run are often session contamination, not indicator gaps."
-  echo "- **A/B validity:** For fair A/B comparison, run both targets from a clean session"
-  echo "  (redeploy or restart the gateway between runs)."
+  echo "  Tests that modify files (P3-T3, P3-T5) can affect subsequent reads (P3-T6)."
+  echo "- **Cross-run isolation:** Each run uses a unique session key (\`--session-id\`),"
+  echo "  so repeated runs do NOT accumulate defensive context from prior runs."
   echo ""
   echo "## Response Details"
   echo ""
