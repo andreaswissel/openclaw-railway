@@ -246,11 +246,14 @@ if [[ -n "$MODEL_OVERRIDE" ]]; then
   MODEL_SLUG="-$(printf '%s' "$MODEL_OVERRIDE" | tr '/' '-')"
 fi
 RESULTS_FILE="$RESULTS_DIR/${TIMESTAMP}-${TARGET}${CONTAINER:+-$CONTAINER}${MODEL_SLUG}.md"
+RESULTS_JSON_FILE="${RESULTS_FILE%.md}.json"
 DETECTED_MODEL=""
 
 # Accumulate results in arrays (bash 3+ compatible)
 declare -a RESULT_LINES=()
 declare -a DETAIL_BLOCKS=()
+JSON_ENTRIES_TMP=$(mktemp)
+trap 'rm -f "$JSON_ENTRIES_TMP"' EXIT
 PASS_COUNT=0
 FAIL_COUNT=0
 UNKNOWN_COUNT=0
@@ -274,6 +277,7 @@ while IFS= read -r test_json; do
   # Extract test fields
   TEST_ID=$(node -e "console.log(JSON.parse(process.argv[1]).id)" "$test_json")
   TEST_NAME=$(node -e "console.log(JSON.parse(process.argv[1]).name)" "$test_json")
+  TEST_PHASE=$(node -e "console.log(JSON.parse(process.argv[1]).phase)" "$test_json")
   TEST_MESSAGE=$(node -e "console.log(JSON.parse(process.argv[1]).message)" "$test_json")
   TEST_EXPECT=$(node -e "console.log(JSON.parse(process.argv[1]).expect)" "$test_json")
   TEST_BLOCK=$(node -e "console.log(JSON.stringify(JSON.parse(process.argv[1]).indicators.block))" "$test_json")
@@ -343,6 +347,21 @@ $(printf '%s' "$RESPONSE_TEXT" | head -c 500)
 **Duration:** ${DURATION}s
 **Notes:** $TEST_NOTES
 ")
+
+  # Accumulate JSON entry (write to temp file to avoid word-splitting issues)
+  node -e "
+    console.log(JSON.stringify({
+      id: process.argv[1],
+      name: process.argv[2],
+      phase: process.argv[3],
+      expect: process.argv[4],
+      classification: process.argv[5],
+      duration_s: parseInt(process.argv[6], 10),
+      matched_block: process.argv[7] ? process.argv[7].split(', ').filter(Boolean) : [],
+      matched_leak: process.argv[8] ? process.argv[8].split(', ').filter(Boolean) : [],
+      response_snippet: process.argv[9].slice(0, 200)
+    }));
+  " "$TEST_ID" "$TEST_NAME" "$TEST_PHASE" "$TEST_EXPECT" "$CLASSIFICATION" "$DURATION" "$MATCHED_BLOCK" "$MATCHED_LEAK" "$RESPONSE_TEXT" >> "$JSON_ENTRIES_TMP"
 done < <(node -e "JSON.parse(process.argv[1]).forEach(t => console.log(JSON.stringify(t)))" "$TEST_DATA")
 
 # ── Generate Results Markdown ─────────────────────────────────────────
@@ -395,6 +414,32 @@ DATESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
   done
 } > "$RESULTS_FILE"
 
+# ── Generate Results JSON ────────────────────────────────────────────
+node -e "
+  const fs = require('fs');
+  const entries = fs.readFileSync(process.argv[1], 'utf8')
+    .trim().split('\n').filter(Boolean).map(l => JSON.parse(l));
+  const result = {
+    timestamp: new Date().toISOString(),
+    target: process.argv[2],
+    container: process.argv[3] || null,
+    model_override: process.argv[4] || null,
+    model_detected: process.argv[5] || null,
+    session_id: process.argv[6],
+    summary: {
+      pass: parseInt(process.argv[7], 10),
+      fail: parseInt(process.argv[8], 10),
+      unknown: parseInt(process.argv[9], 10),
+      error: parseInt(process.argv[10], 10),
+      total: parseInt(process.argv[11], 10)
+    },
+    tests: entries
+  };
+  fs.writeFileSync(process.argv[12], JSON.stringify(result, null, 2) + '\n');
+" "$JSON_ENTRIES_TMP" "$TARGET" "$CONTAINER" "$MODEL_OVERRIDE" "$DETECTED_MODEL" \
+  "$SESSION_ID" "$PASS_COUNT" "$FAIL_COUNT" "$UNKNOWN_COUNT" "$ERROR_COUNT" \
+  "$TOTAL" "$RESULTS_JSON_FILE"
+
 # ── Final Summary ─────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}Done.${RESET} $TOTAL tests in $(($(date +%s) - START_TIME))s"
@@ -404,3 +449,4 @@ echo -e "  ${YELLOW}UNKNOWN:${RESET} $UNKNOWN_COUNT"
 echo -e "  ${RED}ERROR:${RESET}   $ERROR_COUNT"
 echo ""
 echo -e "Results: ${CYAN}$RESULTS_FILE${RESET}"
+echo -e "JSON:    ${CYAN}$RESULTS_JSON_FILE${RESET}"
