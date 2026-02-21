@@ -39,13 +39,24 @@ if [ -d "/app/docs" ] && [ ! -d "/data/workspace/docs" ]; then
 fi
 
 # -----------------------------------------------------------------------------
-# 2b. Lock behavioral template files (prevents persistent backdoor)
-#     These files define the agent's safety instructions and personality.
-#     A prompt injection that overwrites AGENTS.md can remove all safety
-#     guardrails — and the change persists across restarts because the
-#     entrypoint skips existing files. Locking them to root-owned read-only
-#     means the agent can read its instructions but can't rewrite them.
-#     Always overwrite from templates to undo any prior tampering.
+# 2b. Workspace file protection (three categories)
+#
+#     LOCKED (always overwrite from image + root:openclaw 440):
+#       AGENTS.md  — safety boundary, tier-injected
+#       TOOLS.md   — tool reference, tier-injected
+#       PROGRESSION.md — upgrade guidance
+#     These are force-restored every startup to undo tampering. The agent
+#     can read them but cannot overwrite them.
+#
+#     SEED-ONLY (copy if missing, openclaw-owned, agent can edit):
+#       PROJECTS.md — project ideas, not security-critical
+#     Handled by the seed-if-missing loop above (step 2). Not in
+#     PROTECTED_TEMPLATES, so the agent can customize it.
+#
+#     AGENT-OWNED (seed if missing, never overwrite):
+#       IDENTITY.md, USER.md, SOUL.md, HEARTBEAT.md, BOOTSTRAP.md
+#     Also handled by the seed-if-missing loop. These are the agent's
+#     personalization files — they survive redeploys on the volume.
 # -----------------------------------------------------------------------------
 SECURITY_TIER="${SECURITY_TIER:-0}"
 
@@ -62,6 +73,29 @@ case "$SECURITY_TIER" in
 **File reading:** Use the \`read\` tool. It's sandboxed to your workspace (\`/data/workspace/\`).
 
 This is a capable starting point. You're a thinking partner with file access, web fetching, and persistent memory. When your human hits a ceiling and needs more, see \`PROGRESSION.md\` for how to guide them through upgrades. Never suggest upgrades unprompted — wait until they need something you can't do."
+    TOOLS_TIER_INJECT_BLOCK="**Tier 0 — Personal Assistant** (default)
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| read | ✅ | Sandboxed to \`/data/workspace/\` |
+| write | ✅ | Sandboxed to \`/data/workspace/\` |
+| edit | ✅ | Sandboxed to \`/data/workspace/\` |
+| apply_patch | ✅ | Sandboxed to \`/data/workspace/\` |
+| exec | ⚠️ | \`ls\` only — all other commands blocked |
+| memory_get | ✅ | Reads from \`MEMORY.md\` and \`memory/\` |
+| memory_search | ✅ | Semantic search over memory (embeddings auto-configured) |
+| web_fetch | ✅ | GET requests only, no POST |
+| web_search | ✅ | Web search |
+| image | ✅ | Image generation |
+| cron | ✅ | Scheduled tasks |
+| browser | ❌ | Blocked |
+| process | ❌ | Blocked |
+| sessions_spawn | ❌ | Blocked |
+| agents_list | ❌ | Blocked |
+| nodes | ❌ | Blocked |
+| gateway | ❌ | Blocked |
+
+**File access:** All file tools (read/write/edit) are sandboxed to your workspace. Paths outside \`/data/workspace/\` are rejected by the gateway."
     ;;
   1)
     TIER_NAME="Capable Agent"
@@ -73,6 +107,30 @@ This is a capable starting point. You're a thinking partner with file access, we
 **Blocked tools:** browser, process, sessions_spawn, agents_list, nodes, gateway
 **File reading:** Use the \`read\` tool. It supports \`offset\` and \`limit\` for partial reads. It's sandboxed to your workspace.
 **Note:** \`ask: on-miss\` — the first time you use each exec command, your user will be prompted for approval."
+    TOOLS_TIER_INJECT_BLOCK="**Tier 1 — Capable Agent**
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| read | ✅ | Sandboxed to \`/data/workspace/\` |
+| write | ✅ | Sandboxed to \`/data/workspace/\` |
+| edit | ✅ | Sandboxed to \`/data/workspace/\` |
+| apply_patch | ✅ | Sandboxed to \`/data/workspace/\` |
+| exec | ⚠️ | Curated: \`ls\`, \`grep\`, \`find\`, \`wc\`, \`sort\`, \`uniq\`, \`git\`. No cat/head/tail — use \`read\`. \`ask: on-miss\` — first use of each command prompts user. |
+| memory_get | ✅ | Reads from \`MEMORY.md\` and \`memory/\` |
+| memory_search | ✅ | Semantic search over memory |
+| web_fetch | ✅ | GET requests only, no POST |
+| web_search | ✅ | Web search |
+| image | ✅ | Image generation |
+| cron | ✅ | Scheduled tasks |
+| browser | ❌ | Blocked |
+| process | ❌ | Blocked |
+| sessions_spawn | ❌ | Blocked |
+| agents_list | ❌ | Blocked |
+| nodes | ❌ | Blocked |
+| gateway | ❌ | Blocked |
+
+**File access:** All file tools (read/write/edit) are sandboxed to your workspace. Paths outside \`/data/workspace/\` are rejected by the gateway.
+**Exec note:** Commands not in the allowlist go to pending approval. \`askFallback: deny\` blocks unapproved commands."
     ;;
   2)
     TIER_NAME="Power User"
@@ -82,6 +140,29 @@ This is a capable starting point. You're a thinking partner with file access, we
 **Your tools:** read, write, edit, exec (full), memory_get, memory_search, web_fetch, cron, browser, process, sessions_spawn, agents_list
 **Exec commands:** Any command. First use requires approval (\`ask: on-miss\`).
 **Blocked tools:** nodes, gateway"
+    TOOLS_TIER_INJECT_BLOCK="**Tier 2 — Power User**
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| read | ✅ | Sandboxed to \`/data/workspace/\` |
+| write | ✅ | Sandboxed to \`/data/workspace/\` |
+| edit | ✅ | Sandboxed to \`/data/workspace/\` |
+| apply_patch | ✅ | Sandboxed to \`/data/workspace/\` |
+| exec | ✅ | Any command. \`ask: on-miss\` — first use of each command prompts user. |
+| memory_get | ✅ | Reads from \`MEMORY.md\` and \`memory/\` |
+| memory_search | ✅ | Semantic search over memory |
+| web_fetch | ✅ | GET requests only, no POST |
+| web_search | ✅ | Web search |
+| image | ✅ | Image generation |
+| cron | ✅ | Scheduled tasks |
+| browser | ✅ | Web browsing |
+| process | ✅ | Process management |
+| sessions_spawn | ✅ | Spawn sub-sessions |
+| agents_list | ✅ | List available agents |
+| nodes | ❌ | Blocked |
+| gateway | ❌ | Blocked |
+
+**File access:** All file tools (read/write/edit) are sandboxed to your workspace. Paths outside \`/data/workspace/\` are rejected by the gateway."
     ;;
   3)
     TIER_NAME="Operator"
@@ -93,13 +174,37 @@ This is a capable starting point. You're a thinking partner with file access, we
 **Blocked tools:** nodes, gateway
 
 Check for a \`.tier-status\` file in the workspace — your user set SECURITY_TIER=3 but only Tier 2 was applied. Guide them through the SSH steps in \`PROGRESSION.md\` Section D."
+    TOOLS_TIER_INJECT_BLOCK="**Tier 2 — Power User** (Tier 3 requested — requires SSH to complete)
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| read | ✅ | Sandboxed to \`/data/workspace/\` |
+| write | ✅ | Sandboxed to \`/data/workspace/\` |
+| edit | ✅ | Sandboxed to \`/data/workspace/\` |
+| apply_patch | ✅ | Sandboxed to \`/data/workspace/\` |
+| exec | ✅ | Any command. \`ask: on-miss\` — first use of each command prompts user. |
+| memory_get | ✅ | Reads from \`MEMORY.md\` and \`memory/\` |
+| memory_search | ✅ | Semantic search over memory |
+| web_fetch | ✅ | GET requests only, no POST |
+| web_search | ✅ | Web search |
+| image | ✅ | Image generation |
+| cron | ✅ | Scheduled tasks |
+| browser | ✅ | Web browsing |
+| process | ✅ | Process management |
+| sessions_spawn | ✅ | Spawn sub-sessions |
+| agents_list | ✅ | List available agents |
+| nodes | ❌ | Blocked |
+| gateway | ❌ | Blocked |
+
+**File access:** All file tools (read/write/edit) are sandboxed to your workspace. Paths outside \`/data/workspace/\` are rejected by the gateway.
+**Tier 3 note:** Check \`.tier-status\` in workspace. Guide user through SSH steps in \`PROGRESSION.md\` Section D."
     ;;
 esac
 
 echo "[entrypoint] Tier ${SECURITY_TIER} (${TIER_NAME})"
 
 # Copy and lock protected templates
-PROTECTED_TEMPLATES="AGENTS.md TOOLS.md PROGRESSION.md PROJECTS.md"
+PROTECTED_TEMPLATES="AGENTS.md TOOLS.md PROGRESSION.md"
 for fname in $PROTECTED_TEMPLATES; do
   src="/app/workspace-templates/$fname"
   dst="/data/workspace/$fname"
@@ -121,6 +226,20 @@ if [ -f "$AGENTS_DST" ]; then
   mv "${AGENTS_DST}.tmp" "$AGENTS_DST"
   rm -f "$TIER_INJECT_FILE"
   echo "[entrypoint] Tier ${SECURITY_TIER} injected into AGENTS.md"
+fi
+
+# Inject tier-specific content into TOOLS.md before locking
+TOOLS_DST="/data/workspace/TOOLS.md"
+if [ -f "$TOOLS_DST" ]; then
+  TOOLS_INJECT_FILE=$(mktemp)
+  echo "$TOOLS_TIER_INJECT_BLOCK" > "$TOOLS_INJECT_FILE"
+  awk '
+    /<!-- TOOLS_TIER_INJECT -->/ { while ((getline line < "'"$TOOLS_INJECT_FILE"'") > 0) print line; next }
+    { print }
+  ' "$TOOLS_DST" > "${TOOLS_DST}.tmp"
+  mv "${TOOLS_DST}.tmp" "$TOOLS_DST"
+  rm -f "$TOOLS_INJECT_FILE"
+  echo "[entrypoint] Tier ${SECURITY_TIER} injected into TOOLS.md"
 fi
 
 # Write .tier marker file to workspace

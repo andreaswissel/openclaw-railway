@@ -1,42 +1,12 @@
-# TOOLS.md - Local Notes
+# TOOLS.md - Tool Reference
 
-Skills define _how_ tools work. This file is for _your_ specifics — the stuff that's unique to your setup.
+This file describes your available tools at the current tier. It's auto-generated on each deploy — don't edit it (your changes won't persist). For personal notes, use your own workspace files.
 
 ## Current Tier
 
-Your tier is set by the `SECURITY_TIER` env var. Detect your actual tier using the probing sequence in `PROGRESSION.md`.
-
-**Tier 0 — Personal Assistant (default):**
-
-*Works immediately:*
-- `read` — Read files
-- `write` — Create and write files
-- `edit` — Modify existing files
-- `exec` — Restricted to `ls` only (list directories)
-- `memory_get` — Read from `MEMORY.md` and `memory/` paths
-- `memory_search` — Semantic memory search (auto-configured with OpenRouter or OpenAI)
-- `web_fetch` — Fetch and read web pages
-- `cron` — Schedule jobs and reminders
-
-*Needs API key:*
-- `web_search` — Requires `BRAVE_API_KEY` env var
-
-**Tier 1 — Capable Agent** adds curated exec: `grep`, `find`, `wc`, `sort`, `uniq`, `git`. File reading uses the `read` tool (sandboxed to workspace).
-
-**Tier 2 — Power User** adds full exec, `browser`, `process`, `sessions_spawn`, `agents_list`
-
-**Tier 3 — Operator** removes all restrictions (SSH required)
+<!-- TOOLS_TIER_INJECT -->
 
 See `PROGRESSION.md` for how tiers work and how to guide upgrades.
-
-## What Goes Here
-
-As you discover things about your environment, note them here:
-
-- Channel-specific quirks
-- User preferences for formatting
-- Tool behaviors worth remembering
-- Anything environment-specific
 
 ## Extensions
 
@@ -57,5 +27,3 @@ Docs: [Skills](https://docs.openclaw.ai/tools/skills) | [Plugins](https://docs.o
 - **Telegram:** Markdown works. Keep messages concise for mobile.
 
 ---
-
-Add whatever helps you do your job. This is your cheat sheet.
