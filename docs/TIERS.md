@@ -261,6 +261,57 @@ exit
 
 ---
 
+## Skills and Plugins
+
+OpenClaw has an extension ecosystem — [ClawHub](https://clawhub.ai/) hosts 5,700+ community skills, and you can create your own.
+
+### How Skills Work
+
+Skills are instruction packages that teach your agent new capabilities. They live in three locations (highest priority first):
+
+1. **Workspace skills** — `/data/workspace/skills/` (agent-accessible, persists on volume)
+2. **Managed skills** — `~/.openclaw/skills/` (installed via CLI)
+3. **Bundled skills** — Shipped with the OpenClaw binary
+
+You can disable individual skills in config via `skills.entries.<name>.enabled: false`.
+
+### Skills by Tier
+
+| Tier | Can Install Skills? | How |
+|------|-------------------|-----|
+| 0 | No | Exec restricted to `ls` — no CLI access |
+| 1 | No | Exec allowlist doesn't include `openclaw` or `clawhub` binaries |
+| 2 | Yes | Full exec — `openclaw skills install <name>` or `clawhub install <name>` |
+| 3 | Yes | Unrestricted |
+
+**Pre-installed skills work at any tier.** If you place skill files in `/data/workspace/skills/` (via SSH or by baking them into the image), the agent can use them regardless of tier. The tier restriction only affects *installing new skills at runtime*.
+
+### HTTP-Based Skills at Tier 0
+
+Skills that wrap external HTTP APIs can work at Tier 0 via `web_fetch` — no exec access needed. For example, a skill that teaches the agent to query a REST API only needs the agent to make GET requests, which `web_fetch` already supports.
+
+This is the recommended pattern for integrating external services at lower tiers: build the service as an HTTP API, create a skill that documents the endpoints, and the agent calls them with `web_fetch`.
+
+### Custom Skills
+
+You can create your own skills and deploy them to the workspace. Place skill directories in `/data/workspace/skills/<skill-name>/` with the standard OpenClaw skill structure. These take highest precedence and persist across redeploys on the volume.
+
+### Security Considerations
+
+- **Tier 2+:** The agent can self-install skills from ClawHub if asked (or if socially engineered). `ask: on-miss` prompts for exec approval the first time, but subsequent installs go through without prompting.
+- **Skill audit:** Before installing ClawHub skills, run `openclaw skill audit <skill-name>` to check for suspicious behavior. OpenClaw scans ClawHub uploads via VirusTotal, but treat community skills like any third-party code.
+- **No skill-level allowlist:** There's no gateway config to restrict *which* skills can be installed. Control is binary — either the agent has exec access to install skills (Tier 2+) or it doesn't (Tier 0-1).
+
+### Plugins
+
+Plugins are code-level extensions (vs. skills which are instruction-level). Channel plugins (Telegram, Discord, Slack) are automatically configured by the template based on which tokens you set. Custom plugins require SSH access to configure.
+
+### Hooks
+
+Hooks are event-triggered automations configured in `openclaw.json`. They're available at all tiers but must be configured by the operator (via SSH or by adding them to `build-config.js`).
+
+---
+
 ## Per-Channel Overrides
 
 You can set different capabilities for different channels. For example, Telegram gets Tier 2 capabilities but Discord stays at defaults:

@@ -190,6 +190,29 @@ This template combines upstream gateway hardening with its own security layers:
 6. **Upstream SSRF guards** — Gateway blocks private/internal hostnames
 7. **Upstream OC-09 fix** — Exec env var injection patched at gateway level
 
+## Skills and Plugins
+
+OpenClaw's extension ecosystem ([ClawHub](https://clawhub.ai/)) is gated by the tier system through exec access:
+
+| Tier | Skill Installation | Skill Usage |
+|------|-------------------|-------------|
+| 0-1 | Blocked (no exec access to `openclaw` or `clawhub` binaries) | Pre-installed and HTTP-based skills work |
+| 2-3 | Available via `openclaw skills install` or `clawhub install` | All skills work |
+
+**What this means for security:**
+
+- **Tiers 0-1 are safe from skill-based attacks.** The agent cannot install new skills because it lacks exec access to the installation binaries. Pre-installed skills (placed in `/data/workspace/skills/` by the operator) work fine.
+- **Tier 2+ can self-install skills.** If the agent is socially engineered into running `openclaw skills install <malicious-skill>`, `ask: on-miss` will prompt for exec approval the first time `openclaw` is invoked, but subsequent installs bypass the prompt. Treat this the same as the general "full exec" risk at Tier 2.
+- **No skill-level allowlist exists.** There's no gateway config to restrict which skills can load. You can disable specific skills with `skills.entries.<name>.enabled: false`, but there's no allowlist equivalent.
+- **HTTP-based skills bypass exec restrictions.** A skill that teaches the agent to call an external HTTP API works at Tier 0 via `web_fetch`. This is by design — the skill itself is just instructions, and `web_fetch` is already allowed. The security boundary for these skills is on the external service (authentication, rate limiting, read-only keys).
+
+**Recommendations:**
+- Pre-install trusted skills at image build time or via SSH, rather than letting the agent install them at runtime
+- Audit ClawHub skills before installation: `openclaw skill audit <skill-name>`
+- For external service integrations at Tier 0, use the HTTP API pattern — the agent calls endpoints with `web_fetch`, and the external service enforces its own access control
+
+See [TIERS.md](TIERS.md) for the full skills-by-tier breakdown.
+
 ## Unlocking More Capabilities
 
 See [TIERS.md](TIERS.md) for how to progressively enable more agent capabilities.
