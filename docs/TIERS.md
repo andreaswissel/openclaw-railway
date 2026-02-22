@@ -98,7 +98,7 @@ Everything in Tier 0, plus curated shell commands with user approval.
 **Additional capabilities:**
 - Run curated shell commands: `find`, `wc`, `sort`, `uniq`, `git`
 - File reading and searching handled by the `read` tool (sandboxed to workspace)
-- Agent asks for approval on first use of each new command (`ask: on-miss`)
+- Commands not in the allowlist are silently denied — no approval queue
 
 **What this looks like in practice:**
 - You drop a CSV export of your expenses into the workspace. "How much did I spend on dining out last month?" — agent reads the file and processes it with `sort`, `wc`, and `uniq`.
@@ -118,7 +118,7 @@ Redeploy. That's it.
 
 **What changes:**
 - Exec allowlist expands from `ls` only to the curated list above
-- `ask: on-miss` means the agent prompts for approval the first time it runs each command, then remembers
+- `ask: off` means commands are either allowed (in the allowlist) or denied — no runtime approval
 
 **exec-approvals.json** (deployed automatically):
 ```json5
@@ -127,7 +127,7 @@ Redeploy. That's it.
   agents: {
     main: {
       security: "allowlist",
-      ask: "on-miss",
+      ask: "off",
       askFallback: "deny",
       allowlist: [
         { pattern: "/usr/bin/ls" },
@@ -152,7 +152,7 @@ Redeploy. That's it.
 Everything in Tier 1, plus unrestricted shell, browser, sub-agents, and process management.
 
 **Additional capabilities:**
-- Full shell access (any command, with `ask: on-miss` approval)
+- Full shell access (any command, no approval gate)
 - Browser automation (remote only — no local Chromium)
 - Sub-agent spawning for parallel work
 - Process management
@@ -179,7 +179,7 @@ Redeploy.
 - `process`, `browser`, `sessions_spawn`, `agents_list` moved from deny to allow
 - Exec switches from allowlist to full mode
 - No exec-approvals file deployed (not needed in full mode)
-- `ask: on-miss` still requires approval for new commands
+- `ask: off` — no runtime approval gate, all commands run immediately
 
 **Browser automation:**
 
@@ -195,7 +195,7 @@ Set the appropriate env vars and the agent will connect to the remote browser au
 - The agent can run any command in the container
 - Sub-agents inherit the parent's permissions — if the parent has full exec, so do sub-agents
 - Browser automation can interact with web pages (potential prompt injection surface)
-- `ask: on-miss` only prompts the first time; after approval, that command runs freely
+- All commands run immediately — no approval gate at this tier
 
 ---
 
@@ -236,7 +236,7 @@ Set an empty deny list and enable elevated mode:
   tools: {
     exec: {
       security: "full",
-      ask: "on-miss"
+      ask: "off"
     },
     elevated: {
       enabled: true
@@ -297,7 +297,7 @@ You can create your own skills and deploy them to the workspace. Place skill dir
 
 ### Security Considerations
 
-- **Tier 2+:** The agent can self-install skills from ClawHub if asked (or if socially engineered). `ask: on-miss` prompts for exec approval the first time, but subsequent installs go through without prompting.
+- **Tier 2+:** The agent can self-install skills from ClawHub if asked (or if socially engineered). Full exec mode means no approval gate — commands run immediately.
 - **Skill audit:** Before installing ClawHub skills, run `openclaw skill audit <skill-name>` to check for suspicious behavior. OpenClaw scans ClawHub uploads via VirusTotal, but treat community skills like any third-party code.
 - **No skill-level allowlist:** There's no gateway config to restrict *which* skills can be installed. Control is binary — either the agent has exec access to install skills (Tier 2+) or it doesn't (Tier 0-1).
 
@@ -407,12 +407,12 @@ Delete the volume in Railway dashboard and redeploy. This wipes everything — c
 
 **Tier 1 (curated shell):**
 - The allowlist restricts which commands the agent can run. Content-reading binaries (`cat`, `head`, `tail`, `grep`) are excluded — the `read` tool handles file reading within the workspace sandbox.
-- `ask: on-miss` means the agent prompts for approval before running a new command type.
+- Commands not in the allowlist are denied. No approval queue — add commands via `EXEC_EXTRA_COMMANDS` or the exec-approvals file.
 - Chaining (`;`, `&&`, `||`) and redirections are blocked.
 - OC-09 fix (v2026.2.14+) blocks `$VAR` injection in exec scripts — defense-in-depth alongside `env -i`.
 
 **Tier 2 (full shell + browser):**
-- The agent can run any command in the container. `ask: on-miss` still requires first-time approval.
+- The agent can run any command in the container with no approval gate.
 - Sub-agents inherit permissions. If the parent has full exec, so do sub-agents.
 - Browser automation can interact with web pages — be mindful of prompt injection.
 - Never add secrets to workspace files the agent can read.

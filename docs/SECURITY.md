@@ -202,7 +202,7 @@ OpenClaw's extension ecosystem ([ClawHub](https://clawhub.ai/)) is gated by the 
 **What this means for security:**
 
 - **Tiers 0-1 are safe from skill-based attacks.** The agent cannot install new skills because it lacks exec access to the installation binaries. Pre-installed skills (placed in `/data/workspace/skills/` by the operator) work fine.
-- **Tier 2+ can self-install skills.** If the agent is socially engineered into running `openclaw skills install <malicious-skill>`, `ask: on-miss` will prompt for exec approval the first time `openclaw` is invoked, but subsequent installs bypass the prompt. Treat this the same as the general "full exec" risk at Tier 2.
+- **Tier 2+ can self-install skills.** If the agent is socially engineered into running `openclaw skills install <malicious-skill>`, full exec mode means no approval gate — commands run immediately. Treat this the same as the general "full exec" risk at Tier 2.
 - **No skill-level allowlist exists.** There's no gateway config to restrict which skills can load. You can disable specific skills with `skills.entries.<name>.enabled: false`, but there's no allowlist equivalent.
 - **HTTP-based skills bypass exec restrictions.** A skill that teaches the agent to call an external HTTP API works at Tier 0 via `web_fetch`. This is by design — the skill itself is just instructions, and `web_fetch` is already allowed. The security boundary for these skills is on the external service (authentication, rate limiting, read-only keys).
 

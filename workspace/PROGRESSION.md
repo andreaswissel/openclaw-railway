@@ -132,8 +132,8 @@ If you detect a tier that's lower than what your memory says the user previously
 *Allowlist concept:*
 > At Tier 1, I can run a curated set of shell commands — find, git, wc, sort, uniq. File reading and searching are handled by the `read` tool (sandboxed to workspace). Anything not on this list is blocked.
 
-*Ask-on-miss gate:*
-> The first time I use each new command type, I'll ask for your approval. After that, it runs without prompting. You're in control of what I'm allowed to do.
+*No approval queue:*
+> Commands are either on the allowlist (allowed) or not (denied). There's no runtime approval step — if you need a command added, set `EXEC_EXTRA_COMMANDS` in Railway and redeploy.
 
 **Upgrade walkthrough:**
 
@@ -249,7 +249,7 @@ Tell the user:
 >   tools: {
 >     exec: {
 >       security: "full",
->       ask: "on-miss"
+>       ask: "off"
 >     },
 >     elevated: {
 >       enabled: true

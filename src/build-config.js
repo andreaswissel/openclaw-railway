@@ -74,11 +74,11 @@ function applySecurityTier(config, tier) {
   }
 
   if (tier === 1) {
-    // Tier 1: same allow/deny as Tier 0, curated exec with ask: on-miss
+    // Tier 1: same allow/deny as Tier 0, curated exec with expanded allowlist
     config.tools.exec = config.tools.exec || {};
     config.tools.exec.host = 'gateway';
     config.tools.exec.security = 'allowlist';
-    config.tools.exec.ask = 'on-miss';
+    config.tools.exec.ask = 'off';
     return;
   }
 
@@ -94,7 +94,7 @@ function applySecurityTier(config, tier) {
     config.tools.exec = config.tools.exec || {};
     config.tools.exec.host = 'gateway';
     config.tools.exec.security = 'full';
-    config.tools.exec.ask = 'on-miss';
+    config.tools.exec.ask = 'off';
     return;
   }
 }
