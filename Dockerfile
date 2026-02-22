@@ -3,7 +3,7 @@
 # Simple, secure deployment - uses official npm package
 # =============================================================================
 
-FROM node:22-bookworm-slim
+FROM node:22-bookworm
 
 # Install minimal runtime dependencies
 RUN apt-get update \
