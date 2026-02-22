@@ -47,7 +47,7 @@ Get an API key from your preferred provider. See [PROVIDERS.md](PROVIDERS.md) fo
 
 ### Option A: One-Click Deploy
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/openclaw)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/yBnBWA?referralCode=slayga&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
 ### Option B: From GitHub
 

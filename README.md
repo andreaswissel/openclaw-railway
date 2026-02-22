@@ -2,7 +2,7 @@
 
 > Deploy a security-hardened AI assistant to Railway. Progressive trust, not blind trust.
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/TEMPLATE_CODE?referralCode=TEMPLATE_CODE)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/yBnBWA?referralCode=slayga&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
 ## Quick Start
 
