@@ -117,8 +117,8 @@ These require `SECURITY_TIER=1`. Only suggest if the user is already at Tier 1, 
 They export their bank statement or credit card transactions as a CSV and drop it in the workspace. You read it with shell tools, categorize spending, identify trends across large datasets. "You spent $340 on subscriptions last month — that's up 20% from the month before. Want me to list them all?" Over time, you track month-over-month patterns and flag anomalies.
 
 **First message from them:** "I want to get a handle on my spending" or "Here's my bank export"
-**What you do:** Read and process the CSV with `cat`, `sort`, `uniq`, `wc`, and `grep`. Create `finances/YYYY-MM-summary.md`. Track month-over-month trends in `finances/trends.md`.
-**Note:** Basic CSV reading and manual review works at Tier 0 via `read` — Tier 1 adds shell tools for sorting, filtering, and counting across larger datasets.
+**What you do:** Read the CSV with the `read` tool, then process with `sort`, `uniq`, and `wc`. Create `finances/YYYY-MM-summary.md`. Track month-over-month trends in `finances/trends.md`.
+**Note:** Basic CSV reading and manual review works at Tier 0 via `read` — Tier 1 adds shell tools for sorting and counting across larger datasets.
 
 ### Contact List Cleanup
 
@@ -136,15 +136,15 @@ They export contacts from their phone, email, or CRM. Hundreds or thousands of e
 They track what they read and watch. But instead of just listing titles, you process the data — how many books this year? Average per month? Genre breakdown? Longest streak? You maintain `reading/` with entries and periodically run the numbers.
 
 **First message from them:** "I want to track my reading this year" or "I watch too much TV"
-**What you do:** Maintain `reading/log.md` with entries. Use `grep`/`wc`/`sort` to generate stats. Offer monthly and quarterly reports.
-**Note:** Basic tracking via `read`/`write` works at Tier 0. Tier 1 adds `grep`, `wc`, and `sort` for running aggregate stats across many entries.
+**What you do:** Maintain `reading/log.md` with entries. Use `wc`/`sort` to generate stats and `read` to search through entries. Offer monthly and quarterly reports.
+**Note:** Basic tracking via `read`/`write` works at Tier 0. Tier 1 adds `wc` and `sort` for running aggregate stats across many entries.
 
 ### Meeting Notes Consolidator
 
 They have dozens of meeting notes scattered across their workspace. You read through all of them, extract action items, build a topic index, identify decisions that were made, and flag things that were discussed but never resolved.
 
 **First message from them:** "I have months of meeting notes and can't find anything"
-**What you do:** `find` all note files, `grep` for action items and decisions, build `meetings/index.md` with topics and cross-references. Flag unresolved items.
+**What you do:** `find` all note files, `read` each to extract action items and decisions, build `meetings/index.md` with topics and cross-references. Flag unresolved items.
 
 ---
 
@@ -152,17 +152,17 @@ They have dozens of meeting notes scattered across their workspace. You read thr
 
 ### Recipe Organizer
 
-They have recipes everywhere — screenshots, bookmarks, notes, messages. You consolidate them into `recipes/` with a structured format: ingredients, steps, source, their notes. Build an index by cuisine, difficulty, prep time. They can ask "what can I make with chicken and rice?" and you search by reading files or using `grep`.
+They have recipes everywhere — screenshots, bookmarks, notes, messages. You consolidate them into `recipes/` with a structured format: ingredients, steps, source, their notes. Build an index by cuisine, difficulty, prep time. They can ask "what can I make with chicken and rice?" and you search by reading files or using `memory_search`.
 
 **First message from them:** "I have recipes all over the place" or "What should I cook tonight?"
-**What you do:** Create `recipes/dish-name.md` for each. Build `recipes/index.md` by category. Use `grep` to find recipes by ingredient. Semantic search via `memory_search` also works (auto-configured with OpenRouter or OpenAI).
+**What you do:** Create `recipes/dish-name.md` for each. Build `recipes/index.md` by category. Use `read` to search files or `memory_search` to find recipes by ingredient (auto-configured with OpenRouter or OpenAI).
 
 ### Wine / Coffee / Tea Tasting Log
 
 They're into something collectible. You maintain a detailed log with tasting notes, ratings, sources, prices. Over time, you identify their preferences — "You consistently rate wines from Willamette Valley higher than Napa. You prefer medium-body reds with earthy notes." The insight comes from the data, not individual entries.
 
 **First message from them:** "I'm getting into wine" or "I want to track what I'm drinking"
-**What you do:** Create `tasting/entry-name.md` with structured notes. Use `sort`/`grep` to analyze patterns. Offer periodic taste profile reports.
+**What you do:** Create `tasting/entry-name.md` with structured notes. Use `sort` to analyze patterns and `read` to search entries. Offer periodic taste profile reports.
 
 ---
 

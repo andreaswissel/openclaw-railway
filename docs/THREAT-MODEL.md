@@ -83,11 +83,10 @@ This document is brutally honest about what can go wrong, what's at risk, and wh
 
 | Location | Contents | Can Agent Access? |
 |----------|----------|-------------------|
-| `/data/.openclaw/openclaw.json` | Gateway token, channel config, API key references | Yes (600 perms, but agent runs as owner) |
-| `/data/workspace/*` | User files | Yes (unless FS blocklist configured) |
-| Environment variables | API keys from Railway | Yes (via `process.env`) |
-| `/data/.openclaw/gateway.log` | Message history, commands | Yes |
-| `/data/core/` | Core sync data | Yes |
+| `/data/.openclaw/openclaw.json` | Gateway token, channel config, API keys | No (`workspaceOnly` blocks file tools; 640 root:openclaw perms) |
+| `/data/workspace/*` | User files | Yes (sandboxed here) |
+| Environment variables | API keys from Railway | No (`env -i` — gateway starts with empty environment) |
+| `/data/.openclaw/gateway.log` | Message history, commands | No (`workspaceOnly` blocks access) |
 
 ## Financial Risk
 
@@ -130,6 +129,8 @@ This document is brutally honest about what can go wrong, what's at risk, and wh
 7. **Day 3**: You notice unusual Anthropic bill ($500+)
 
 **Total damage**: $500 to $50,000+ depending on attacker motivation and what was in your workspace.
+
+> **With this template's defaults (Tier 0):** Steps 1-2 are blocked. `workspaceOnly` prevents config reads, `env -i` empties the process environment, and file permissions (640 root:openclaw) block writes. The timeline above applies to vanilla OpenClaw without hardening. At Tier 2+ with full exec, steps 1-2 become possible again via shell commands — see the tier system docs for risk details.
 
 ---
 
@@ -219,11 +220,12 @@ Consider alternatives if you need:
 
 ### What Does NOT Protect You
 
-| "Protection" | Why It Fails |
-|--------------|--------------|
-| Exec allowlist | Only enforced with sandbox mode ON (requires Docker) |
-| Restricted shells (rbash) | Trivially bypassed, not designed for AI agents |
-| Gateway on loopback | Agent runs inside container, can still access it |
+| "Protection" | Reality |
+|--------------|---------|
+| Exec allowlist alone | Bypassed at Tier 2+. At Tier 0-1, enforced by gateway via `exec-approvals.json` |
+| Restricted shells (rbash) | Not used. Exec-approvals operates at the binary-path level instead |
+| Gateway on loopback | Agent runs inside container but `workspaceOnly` blocks file-based gateway access. Gateway token auth still applies for HTTP. |
+| Behavioral templates alone | Proven effective (89% vs 34%) but bypassable by determined prompt injection. Defense in depth with technical controls is the actual strategy. |
 
 ---
 

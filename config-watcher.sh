@@ -20,14 +20,17 @@ if [ -L "$CONFIG_FILE" ]; then
   exit 1
 fi
 
-# Secure permissions immediately
-chmod 600 "$CONFIG_FILE"
-chown openclaw:openclaw "$CONFIG_FILE"
+# Secure permissions
+chown root:openclaw "$CONFIG_FILE"
+chmod 640 "$CONFIG_FILE"
 
-# Start gateway
+# Start gateway with empty environment (matches entrypoint.sh security model)
 echo "[watcher] Config detected, starting gateway..."
-su openclaw -c "cd /data/workspace && nohup openclaw gateway run \
-  --port 18789 \
-  > /data/.openclaw/gateway.log 2>&1 &"
+env -i \
+  HOME=/home/openclaw \
+  PATH=/usr/local/bin:/usr/bin:/bin \
+  OPENCLAW_STATE_DIR=/data/.openclaw \
+  NODE_ENV=production \
+  su openclaw -c "cd /data/workspace && openclaw gateway run --port 18789 --compact 2>&1 | while read line; do echo \"[gateway] \$line\"; done" &
 
 echo "[watcher] Gateway started"

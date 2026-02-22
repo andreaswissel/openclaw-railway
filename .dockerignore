@@ -1,0 +1,17 @@
+.git/
+.gitignore
+.claude/
+.env
+.env.*
+*.log
+node_modules/
+bun.lockb
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+internal/
+tests/
+CLAUDE.md

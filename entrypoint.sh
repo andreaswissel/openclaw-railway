@@ -99,11 +99,11 @@ This is a capable starting point. You're a thinking partner with file access, we
     ;;
   1)
     TIER_NAME="Capable Agent"
-    TIER_EXEC_COMMANDS="ls, grep, find, wc, sort, uniq, git"
+    TIER_EXEC_COMMANDS="ls, find, wc, sort, uniq, git"
     TIER_INJECT_BLOCK="You are running at **Tier 1 — Capable Agent**.
 
 **Your tools:** read, write, edit, exec (curated list), memory_get, memory_search, web_fetch, cron
-**Exec commands:** \`ls\`, \`grep\`, \`find\`, \`wc\`, \`sort\`, \`uniq\`, \`git\`. File reading commands (cat, head, tail) are NOT available — use the \`read\` tool instead.
+**Exec commands:** \`ls\`, \`find\`, \`wc\`, \`sort\`, \`uniq\`, \`git\`. Content-reading commands (cat, head, tail, grep) are NOT available — use the \`read\` tool instead (sandboxed to workspace).
 **Blocked tools:** browser, process, sessions_spawn, agents_list, nodes, gateway
 **File reading:** Use the \`read\` tool. It supports \`offset\` and \`limit\` for partial reads. It's sandboxed to your workspace.
 **Note:** \`ask: on-miss\` — the first time you use each exec command, your user will be prompted for approval."
@@ -115,7 +115,7 @@ This is a capable starting point. You're a thinking partner with file access, we
 | write | ✅ | Sandboxed to \`/data/workspace/\` |
 | edit | ✅ | Sandboxed to \`/data/workspace/\` |
 | apply_patch | ✅ | Sandboxed to \`/data/workspace/\` |
-| exec | ⚠️ | Curated: \`ls\`, \`grep\`, \`find\`, \`wc\`, \`sort\`, \`uniq\`, \`git\`. No cat/head/tail — use \`read\`. \`ask: on-miss\` — first use of each command prompts user. |
+| exec | ⚠️ | Curated: \`ls\`, \`find\`, \`wc\`, \`sort\`, \`uniq\`, \`git\`. No cat/head/tail/grep — use \`read\`. \`ask: on-miss\` — first use of each command prompts user. |
 | memory_get | ✅ | Reads from \`MEMORY.md\` and \`memory/\` |
 | memory_search | ✅ | Semantic search over memory |
 | web_fetch | ✅ | GET requests only, no POST |
@@ -271,7 +271,7 @@ echo "[entrypoint] Behavioral templates locked (root:openclaw 440)"
 # -----------------------------------------------------------------------------
 # 3. Deploy exec-approvals (tier-aware)
 #    Tier 0: ls only, ask off
-#    Tier 1: curated list (grep, find, git, wc, sort, uniq), ask on-miss
+#    Tier 1: curated list (find, git, wc, sort, uniq), ask on-miss
 #    Tier 2+: full exec, no allowlist needed
 #    Note: exec-approvals.json lives at ~/.openclaw/ (user home), NOT $OPENCLAW_STATE_DIR
 # -----------------------------------------------------------------------------

@@ -96,13 +96,13 @@ Note: `memory_search` is auto-configured when using OpenRouter or OpenAI as your
 Everything in Tier 0, plus curated shell commands with user approval.
 
 **Additional capabilities:**
-- Run curated shell commands: `grep`, `find`, `wc`, `sort`, `uniq`, `git`
-- File reading handled by the `read` tool (sandboxed to workspace)
+- Run curated shell commands: `find`, `wc`, `sort`, `uniq`, `git`
+- File reading and searching handled by the `read` tool (sandboxed to workspace)
 - Agent asks for approval on first use of each new command (`ask: on-miss`)
 
 **What this looks like in practice:**
-- You drop a CSV export of your expenses into the workspace. "How much did I spend on dining out last month?" — agent reads and processes the file.
-- "Find every time I mentioned pricing in my notes" — agent searches across all your files with exact matching.
+- You drop a CSV export of your expenses into the workspace. "How much did I spend on dining out last month?" — agent reads the file and processes it with `sort`, `wc`, and `uniq`.
+- "Find every time I mentioned pricing in my notes" — agent uses `find` to locate files, then `read` to search through them.
 - You accidentally delete something from a note. Agent recovers it from git history — your workspace has version control built in.
 - "Organize these 30 meeting notes by topic and make an index" — agent reads through files, categorizes, builds a structured overview.
 - You export your contacts from your phone as a CSV. "Sort these by last name and remove duplicates" — done.
@@ -132,7 +132,6 @@ Redeploy. That's it.
       allowlist: [
         { pattern: "/usr/bin/ls" },
         { pattern: "/bin/ls" },
-        { pattern: "/usr/bin/grep" },
         { pattern: "/usr/bin/find" },
         { pattern: "/usr/bin/wc" },
         { pattern: "/usr/bin/sort" },
@@ -407,7 +406,7 @@ Delete the volume in Railway dashboard and redeploy. This wipes everything — c
 - `web_fetch` is GET-only, limiting exfiltration payload size to URL parameters.
 
 **Tier 1 (curated shell):**
-- The allowlist restricts which commands the agent can run. File-reading binaries (`cat`, `head`, `tail`) are excluded — the `read` tool handles file reading within the workspace sandbox.
+- The allowlist restricts which commands the agent can run. Content-reading binaries (`cat`, `head`, `tail`, `grep`) are excluded — the `read` tool handles file reading within the workspace sandbox.
 - `ask: on-miss` means the agent prompts for approval before running a new command type.
 - Chaining (`;`, `&&`, `||`) and redirections are blocked.
 - OC-09 fix (v2026.2.14+) blocks `$VAR` injection in exec scripts — defense-in-depth alongside `env -i`.

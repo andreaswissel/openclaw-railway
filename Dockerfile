@@ -14,9 +14,7 @@ RUN apt-get update \
     procps \
   && rm -rf /var/lib/apt/lists/*
 
-# Install OpenClaw globally
-# Bump OPENCLAW_VERSION to bust Docker layer cache on upgrades
-ARG OPENCLAW_VERSION=2026.2.17
+# Install OpenClaw globally (always latest — busts cache via Railway redeploy)
 RUN npm install -g openclaw@latest
 
 # Create non-root user

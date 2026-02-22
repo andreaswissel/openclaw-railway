@@ -18,11 +18,6 @@
           "lastUsedCommand": "ls"
         },
         {
-          "id": "tier1-grep",
-          "pattern": "/usr/bin/grep",
-          "lastUsedCommand": "grep"
-        },
-        {
           "id": "tier1-find",
           "pattern": "/usr/bin/find",
           "lastUsedCommand": "find"
