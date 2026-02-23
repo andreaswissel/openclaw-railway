@@ -6,8 +6,8 @@ This document is brutally honest about what can go wrong, what's at risk, and wh
 
 - OpenClaw agent running in a Railway container
 - No Docker sandboxing (Railway doesn't support privileged mode)
-- Security relies on: FS blocklist, tool policy, pairing, container boundary
-- Agent can execute arbitrary commands inside the container
+- Security relies on: `workspaceOnly` filesystem sandbox, tool policy, exec allowlist, pairing, container boundary
+- Agent exec is restricted by allowlist at Tier 0-1 (Tier 2+ has full exec)
 - Only approved users can talk to the bot (pairing)
 
 ## What Can Actually Go Wrong
@@ -18,7 +18,7 @@ This document is brutally honest about what can go wrong, what's at risk, and wh
 
 **Real-world precedent**: OpenAI 2025 - agent scanned a malicious email and sent a resignation letter instead of an out-of-office reply.
 
-**Blast radius**: Agent executes unintended commands with whatever permissions it has. If FS blocklist is misconfigured, agent can read API keys, config files, all workspace data.
+**Blast radius**: Agent executes unintended commands with whatever permissions it has. If `workspaceOnly` were disabled, agent could read API keys, config files, and all container data.
 
 ### 2. Telegram Account Compromise
 
@@ -65,7 +65,7 @@ This document is brutally honest about what can go wrong, what's at risk, and wh
 
 ### 6. Supply Chain Attack
 
-**Attack**: A dependency (npm package) is compromised. Malicious code runs during `pnpm install` in the Dockerfile.
+**Attack**: A dependency (npm package) is compromised. Malicious code runs during `npm install` in the Dockerfile.
 
 **Real-world precedent**:
 - September 2025: 18 npm packages compromised (debug, chalk, ansi-styles)
@@ -171,7 +171,7 @@ This document is brutally honest about what can go wrong, what's at risk, and wh
 2. **Keep workspace disposable** - Nothing you can't afford to lose
 3. **Monitor usage** - Billing alerts at 50%, 80%, 100%
 4. **Rotate keys** - Monthly at minimum
-5. **Configure FS blocklist** - Block `.ssh`, `.aws`, `.env`, sensitive paths
+5. **Keep `workspaceOnly` enabled** - Blocks all file access outside `/data/workspace/`
 6. **Enable pairing** - Approve users explicitly
 7. **Treat as semi-trusted** - Not secure, but bounded
 
@@ -189,7 +189,7 @@ Railway is a fantastic platform, but it has architectural constraints:
 | Custom AppArmor/SELinux | No | Managed infrastructure |
 | Docker socket access | No | Security risk for multi-tenant |
 
-**This means**: OpenClaw's Docker-based sandboxing will never work on Railway. The exec allowlist is not enforced. The container boundary is your only hard isolation.
+**This means**: OpenClaw's Docker-based sandboxing will never work on Railway. However, the exec allowlist IS enforced at Tier 0-1 via `exec-approvals.json` (gateway-level, not Docker-dependent). Combined with `workspaceOnly`, tool policy, and file permissions, there are multiple hard isolation layers beyond just the container boundary.
 
 ## When to Use Something Else
 
@@ -197,7 +197,7 @@ Consider alternatives if you need:
 
 | Requirement | Alternative |
 |-------------|-------------|
-| Enforced exec allowlist | VPS with Docker (DigitalOcean, Hetzner) |
+| Docker-based sandboxing | VPS with Docker (DigitalOcean, Hetzner) |
 | Hardware-level isolation | Fly.io Machines (Firecracker) |
 | Managed sandbox API | E2B, Modal |
 | Full compliance | GCP/AWS with your own security controls |
@@ -213,10 +213,10 @@ Consider alternatives if you need:
 |-------|--------------|------------|
 | Railway container | Can't escape to Railway host | Yes |
 | Non-root user | Can't modify system files | Yes |
-| FS blocklist | Blocks paths like `.ssh`, `.env` | Yes, if configured |
+| `workspaceOnly` sandbox | Blocks all file access outside `/data/workspace/` | Yes (enabled by default) |
 | Tool policy | Can disable tools entirely | Yes |
 | Pairing | Only approved users | Yes, but account compromise bypasses |
-| File permissions (600/700) | Config not world-readable | Yes, but agent runs as owner |
+| File permissions (640/750) | Config root-owned, agent can read but not write | Yes |
 
 ### What Does NOT Protect You
 
