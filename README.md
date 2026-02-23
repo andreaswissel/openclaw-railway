@@ -1,6 +1,8 @@
-<img src="https://openclaw.ai/favicon.svg" alt="OpenClaw" width="32" height="32" align="left" style="margin-right: 8px;">
+<p align="center">
+  <img src="https://openclaw.ai/favicon.svg" alt="OpenClaw" width="80" height="80">
+</p>
 
-# OpenClaw Railway Template
+<h1 align="center">OpenClaw Railway Template</h1>
 
 > Deploy a security-hardened AI assistant to Railway. Progressive trust, not blind trust.
 
