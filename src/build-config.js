@@ -209,6 +209,17 @@ function buildConfig() {
   // --- Embeddings ---
   configureEmbeddings(config);
 
+  // --- Brave Search API Key (for web_search tool) ---
+  if (process.env.BRAVE_API_KEY) {
+    config.tools = config.tools || {};
+    config.tools.web = config.tools.web || {};
+    config.tools.web.search = {
+      provider: 'brave',
+      apiKey: process.env.BRAVE_API_KEY,
+    };
+    console.log('[build-config] Brave Search: API key configured for web_search');
+  }
+
   // --- LLM Model (required - user must specify) ---
   if (process.env.LLM_PRIMARY_MODEL) {
     config.agents.defaults.model = config.agents.defaults.model || {};
@@ -401,6 +412,9 @@ function main() {
   }
   if (debugConfig.agents?.defaults?.memorySearch?.remote?.apiKey) {
     debugConfig.agents.defaults.memorySearch.remote.apiKey = '[REDACTED]';
+  }
+  if (debugConfig.tools?.web?.search?.apiKey) {
+    debugConfig.tools.web.search.apiKey = '[REDACTED]';
   }
   if (debugConfig.env) {
     for (const key of Object.keys(debugConfig.env)) {

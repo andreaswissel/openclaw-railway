@@ -192,6 +192,14 @@ Install custom tools to `/data/bin/` (persists on the Railway volume across rede
 
 Binaries must be installed at `/data/bin/<name>`. The entrypoint adds `/data/bin/` to the gateway's PATH and appends each binary to exec-approvals so the agent can use them. At Tier 2+, exec is unrestricted so `EXEC_EXTRA_COMMANDS` has no effect (but `EXTRA_ENV_KEYS` still works).
 
+## Web Search
+
+The `web_search` tool is available at all tiers but requires a Brave Search API key to function. Without it, the tool is in the allow list but calls will fail at runtime.
+
+| Variable | Description |
+|----------|-------------|
+| `BRAVE_API_KEY` | Brave Search API key — enables `web_search` tool. Get one at https://brave.com/search/api/ |
+
 ## Optional
 
 | Variable | Description |

@@ -252,7 +252,7 @@ The gateway blocks `web_fetch` requests to private/internal hostnames, loopback 
 
 ### Exec Allowlist (exec-approvals.json)
 
-Controls which shell commands the agent can run, deployed as a separate file at `~/.openclaw/exec-approvals.json`. See [TIERS.md](TIERS.md) for per-tier allowlists.
+Controls which shell commands the agent can run, deployed as a separate file at `~/.openclaw/exec-approvals.json` (resolves to `/home/openclaw/.openclaw/exec-approvals.json` in the container — this is the `openclaw` user's home directory, **not** the state directory at `/data/.openclaw/`). See [TIERS.md](TIERS.md) for per-tier allowlists.
 
 ## Recommended Configuration
 
