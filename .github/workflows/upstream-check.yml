@@ -1,0 +1,79 @@
+name: Check OpenClaw Updates
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Every Monday at 9am UTC
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version info
+        id: versions
+        run: |
+          LATEST=$(npm view openclaw version 2>/dev/null || echo "")
+          if [ -z "$LATEST" ]; then
+            echo "Failed to fetch version from npm"
+            exit 1
+          fi
+          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+
+          # Check last validated version from most recent upstream issue
+          LAST=$(gh issue list --label "upstream" --state all --limit 1 --json title --jq '.[0].title // ""' | grep -oP 'v[\d.\-]+' || echo "")
+          echo "last=$LAST" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if issue already exists
+        id: check
+        run: |
+          EXISTING=$(gh issue list --search "OpenClaw v${{ steps.versions.outputs.latest }} in:title" --label "upstream" --json number --jq 'length')
+          echo "exists=$EXISTING" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Open issue for new version
+        if: steps.check.outputs.exists == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "Upstream: OpenClaw v${{ steps.versions.outputs.latest }} released" \
+            --label "upstream" \
+            --body "$(cat <<'EOF'
+          ## New OpenClaw version detected
+
+          **Latest on npm:** v${{ steps.versions.outputs.latest }}
+          **Previous tracked:** ${{ steps.versions.outputs.last || 'unknown' }}
+
+          ## What to check
+
+          - [ ] Read changelog / release notes for breaking changes
+          - [ ] Config schema: keys in `defaults.json` and `build-config.js` still valid
+          - [ ] exec-approvals format unchanged (`version`, `agents.main.allowlist[].pattern`)
+          - [ ] CLI flags: `gateway run --port --compact` still works
+          - [ ] Tool names: no renames in allow/deny lists
+          - [ ] `tools.fs.workspaceOnly` still enforced
+          - [ ] Security advisories (OC-XX format)
+          - [ ] Check if `tools.web.urlAllowlist` has re-landed (H7)
+
+          ## Smoke test
+
+          ```bash
+          # Redeploy and check logs
+          railway up
+          railway logs --tail 50 | grep "OpenClaw version"
+
+          # Send a test message to your bot
+          # Verify exec constraints at Tier 0
+          ```
+
+          ## If changes needed
+
+          Update template, commit, push. Close this issue with a note on what changed.
+          If no changes needed, close with "Compatible — no action required."
+          EOF
+          )"
