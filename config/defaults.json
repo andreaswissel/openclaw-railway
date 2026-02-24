@@ -16,7 +16,7 @@
   },
   "channels": {
     "telegram": {
-      "streamMode": "off"
+      "streaming": "off"
     }
   },
   "tools": {

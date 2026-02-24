@@ -331,6 +331,16 @@ function buildConfig() {
     }
   }
 
+  // --- Custom Binary Trusted Dirs ---
+  // When EXEC_EXTRA_COMMANDS is set, declare /data/bin as a trusted directory
+  // so the new safeBinTrustedDirs exec hardening (v2026.2.21+) allows our binaries.
+  if (process.env.EXEC_EXTRA_COMMANDS) {
+    config.tools = config.tools || {};
+    config.tools.exec = config.tools.exec || {};
+    config.tools.exec.safeBinTrustedDirs = ['/data/bin'];
+    console.log('[build-config] Custom binaries: /data/bin added to safeBinTrustedDirs');
+  }
+
   // --- Extra Environment Keys ---
   // Pass through user-specified env vars (e.g. for custom binaries on the volume).
   // EXTRA_ENV_KEYS=CORE_URL,CORE_API_KEY → injects those into config.env

@@ -7,6 +7,7 @@
 set -e
 
 echo "[entrypoint] Starting OpenClaw Railway..."
+echo "[entrypoint] OpenClaw version: $(openclaw --version 2>/dev/null || echo 'unknown')"
 
 # -----------------------------------------------------------------------------
 # 1. Create data directories with secure permissions
