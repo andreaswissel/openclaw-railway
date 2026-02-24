@@ -29,6 +29,8 @@ Redeploy after changing. The config regenerates automatically.
 - Fetch and read web pages (`web_fetch`)
 - List directory contents (`ls` only — no other shell commands)
 - Schedule cron jobs and reminders
+- Apply patches to workspace files (`apply_patch`)
+- Analyze images (`image` — requires a vision-capable model)
 
 **Needs API key:**
 - Search the web (`web_search`) — requires `BRAVE_API_KEY`
@@ -60,7 +62,7 @@ Note: `memory_search` is auto-configured when using OpenRouter or OpenAI as your
 ```json5
 {
   tools: {
-    allow: ["read", "write", "edit", "memory_get", "memory_search", "web_search", "web_fetch", "exec", "cron"],
+    allow: ["read", "write", "edit", "memory_get", "memory_search", "web_search", "web_fetch", "exec", "cron", "image"],
     deny: ["process", "browser", "nodes", "gateway", "agents_list", "sessions_spawn"],
     exec: {
       host: "gateway",

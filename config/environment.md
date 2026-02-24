@@ -154,7 +154,7 @@ Control your agent's capabilities via environment variable. No SSH needed for Ti
 
 | Tier | Name | What It Adds |
 |------|------|-------------|
-| 0 | Personal Assistant | Web search/fetch, memory, read/write, ls, cron, image |
+| 0 | Personal Assistant | Web search/fetch, memory, read/write, ls, cron, apply_patch, image |
 | 1 | Capable Agent | + curated exec (find, wc, sort, uniq, git) |
 | 2 | Power User | + full exec, browser (remote), sub-agents, process management |
 | 3 | Operator | SSH only. Applies Tier 2 via env var, guides you to SSH for the rest |
