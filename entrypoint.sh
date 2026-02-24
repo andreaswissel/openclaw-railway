@@ -70,7 +70,7 @@ case "$SECURITY_TIER" in
     TIER_EXEC_COMMANDS="ls"
     TIER_INJECT_BLOCK="You are running at **Tier 0 — Personal Assistant** (default).
 
-**Your tools:** read, write, edit, exec (ls only), memory_get, memory_search, web_fetch, cron
+**Your tools:** read, write, edit, apply_patch, exec (ls only), memory_get, memory_search, web_fetch, web_search, image, cron
 **Exec commands:** \`ls\` only. All other shell commands are blocked by the gateway.
 **Blocked tools:** browser, process, sessions_spawn, agents_list, nodes, gateway
 **File reading:** Use the \`read\` tool. It's sandboxed to your workspace (\`/data/workspace/\`).
@@ -89,7 +89,7 @@ This is a capable starting point. You're a thinking partner with file access, we
 | memory_search | ✅ | Semantic search over memory (embeddings auto-configured) |
 | web_fetch | ✅ | GET requests only, no POST |
 | web_search | ✅ | Web search |
-| image | ✅ | Image generation |
+| image | ✅ | Image analysis (vision) |
 | cron | ✅ | Scheduled tasks |
 | browser | ❌ | Blocked |
 | process | ❌ | Blocked |
@@ -105,7 +105,7 @@ This is a capable starting point. You're a thinking partner with file access, we
     TIER_EXEC_COMMANDS="ls, find, wc, sort, uniq, git"
     TIER_INJECT_BLOCK="You are running at **Tier 1 — Capable Agent**.
 
-**Your tools:** read, write, edit, exec (curated list), memory_get, memory_search, web_fetch, cron
+**Your tools:** read, write, edit, apply_patch, exec (curated list), memory_get, memory_search, web_fetch, web_search, image, cron
 **Exec commands:** \`ls\`, \`find\`, \`wc\`, \`sort\`, \`uniq\`, \`git\`. Content-reading commands (cat, head, tail, grep) are NOT available — use the \`read\` tool instead (sandboxed to workspace).
 **Blocked tools:** browser, process, sessions_spawn, agents_list, nodes, gateway
 **File reading:** Use the \`read\` tool. It supports \`offset\` and \`limit\` for partial reads. It's sandboxed to your workspace.
@@ -123,7 +123,7 @@ This is a capable starting point. You're a thinking partner with file access, we
 | memory_search | ✅ | Semantic search over memory |
 | web_fetch | ✅ | GET requests only, no POST |
 | web_search | ✅ | Web search |
-| image | ✅ | Image generation |
+| image | ✅ | Image analysis (vision) |
 | cron | ✅ | Scheduled tasks |
 | browser | ❌ | Blocked |
 | process | ❌ | Blocked |
@@ -158,7 +158,7 @@ Confirm before running unfamiliar commands. Sub-agents inherit your permissions 
 | memory_search | ✅ | Semantic search over memory |
 | web_fetch | ✅ | GET requests only, no POST |
 | web_search | ✅ | Web search |
-| image | ✅ | Image generation |
+| image | ✅ | Image analysis (vision) |
 | cron | ✅ | Scheduled tasks |
 | browser | ✅ | Web browsing |
 | process | ✅ | Process management |
@@ -194,7 +194,7 @@ Check for a \`.tier-status\` file in the workspace — your user set SECURITY_TI
 | memory_search | ✅ | Semantic search over memory |
 | web_fetch | ✅ | GET requests only, no POST |
 | web_search | ✅ | Web search |
-| image | ✅ | Image generation |
+| image | ✅ | Image analysis (vision) |
 | cron | ✅ | Scheduled tasks |
 | browser | ✅ | Web browsing |
 | process | ✅ | Process management |

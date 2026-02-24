@@ -108,28 +108,21 @@ Add a provider API key to environment variables.
 
 ### Gateway won't start
 
-Check logs:
+Gateway logs stream to stdout — check Railway deployment logs in the dashboard or via CLI:
 ```bash
-railway ssh
-cat /data/.openclaw/gateway.log
+railway logs
 ```
 
 ### Need to change config
 
-SSH in and edit:
-```bash
-railway ssh
-nano /data/.openclaw/openclaw.json
-pkill -f "openclaw gateway"
-openclaw gateway run --port 18789 &
-```
+Config is regenerated from environment variables on every deploy. To change settings:
 
-Or delete and redeploy:
+1. Update environment variables in Railway Dashboard → Your Service → Variables
+2. Redeploy: click **Redeploy** in the dashboard, or run `railway up`
+
+For advanced config changes not exposed as env vars, SSH in at Tier 2+:
 ```bash
 railway ssh
-rm /data/.openclaw/openclaw.json
-exit
-railway up
 ```
 
 ---
