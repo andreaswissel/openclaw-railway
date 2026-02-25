@@ -5,6 +5,9 @@ on:
     - cron: '0 9 * * *' # Every day at 9am UTC
   workflow_dispatch: # Manual trigger
 
+permissions:
+  issues: write
+
 jobs:
   check-version:
     runs-on: ubuntu-latest
@@ -39,15 +42,11 @@ jobs:
         if: steps.check.outputs.exists == '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST: ${{ steps.versions.outputs.latest }}
+          LAST: ${{ steps.versions.outputs.last }}
         run: |
-          gh issue create \
-            --title "Upstream: OpenClaw v${{ steps.versions.outputs.latest }} released" \
-            --label "upstream" \
-            --body "$(cat <<'EOF'
+          cat > /tmp/issue-body.md << 'BODY'
           ## New OpenClaw version detected
-
-          **Latest on npm:** v${{ steps.versions.outputs.latest }}
-          **Previous tracked:** ${{ steps.versions.outputs.last || 'unknown' }}
 
           ## What to check
 
@@ -75,5 +74,15 @@ jobs:
 
           Update template, commit, push. Close this issue with a note on what changed.
           If no changes needed, close with "Compatible — no action required."
-          EOF
-          )"
+          BODY
+
+          # Strip leading whitespace from heredoc
+          sed -i 's/^          //' /tmp/issue-body.md
+
+          # Inject version info at the top
+          sed -i "s/## New OpenClaw version detected/## New OpenClaw version detected\n\n**Latest on npm:** v${LATEST}\n**Previous tracked:** ${LAST:-unknown}/" /tmp/issue-body.md
+
+          gh issue create \
+            --title "Upstream: OpenClaw v${LATEST} released" \
+            --label "upstream" \
+            --body-file /tmp/issue-body.md
