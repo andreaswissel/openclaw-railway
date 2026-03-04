@@ -6,9 +6,17 @@
 
 > Deploy a security-hardened AI assistant to Railway. Progressive trust, not blind trust.
 
-[OpenClaw](https://openclaw.ai) is an open-source AI assistant platform that connects to your chat apps and runs 24/7. This template deploys it to Railway with security hardening — configure entirely via environment variables, no SSH required.
+[OpenClaw](https://openclaw.ai) is an open-source AI assistant platform that connects to your chat apps and runs 24/7. This template deploys it to [Railway](https://railway.com) (a container hosting platform) with security hardening — configure entirely via environment variables, no SSH required.
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/yBnBWA?referralCode=slayga&utm_medium=integration&utm_source=template&utm_campaign=generic)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/openclaw-railway?referralCode=slayga&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
+## What You Need
+
+- **Railway account** with Hobby plan ($5/mo — [pricing](https://railway.com/pricing)). This covers the hosting.
+- **OpenRouter API key** — one key, all LLM models. Free to create, pay per use. ([Get one](https://openrouter.ai/keys))
+- **Telegram** — to talk to your bot. ([Get the app](https://telegram.org))
+
+New to all of this? Follow the [full setup walkthrough](docs/SETUP.md) — it covers everything from account creation to your first message.
 
 ## Quick Start
 
