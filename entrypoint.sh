@@ -24,6 +24,11 @@ chmod 750 /data/bin
 if ls /data/bin/* >/dev/null 2>&1; then
   chown root:openclaw /data/bin/*
   chmod 750 /data/bin/*
+  # Symlink custom binaries into /usr/local/bin so the skills system
+  # (which checks standard PATH) can discover them via requires.bins
+  for bin in /data/bin/*; do
+    ln -sf "$bin" /usr/local/bin/"$(basename "$bin")"
+  done
 fi
 
 echo "[entrypoint] Data directories ready"
