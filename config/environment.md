@@ -215,7 +215,7 @@ See what your agent is doing in real-time. When enabled, tool call events (read,
 
 **Recommended setup:** Create a dedicated Telegram topic (thread) for tool activity so it doesn't clutter your main chat. Set `TOOL_OBSERVER_THREAD_ID` to that topic's ID.
 
-**Note:** Enabling the observer forces gateway log level to `info` with JSON output. This increases log volume in Railway but is required for the observer to see tool events.
+**Note:** The observer reads tool calls from session transcript files, not gateway stdout. No logging config changes needed.
 
 ## Optional
 
