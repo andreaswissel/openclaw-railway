@@ -337,17 +337,20 @@ if [ -n "$EXEC_EXTRA_COMMANDS" ] && [ -f "$APPROVALS_HOME" ]; then
   done
 fi
 
-# Harden exec-approvals permissions in one pass:
+# Harden exec-approvals permissions:
 #   File: root:openclaw 660 — root owns, gateway (openclaw group) can read+write
 #     (gateway updates lastUsedCommand metadata at runtime on each exec call)
-#   Dir:  root:openclaw 750 — openclaw can traverse, cannot create new files
+#   Dir:  root:openclaw 750 — openclaw can traverse + create files at runtime
+#     (gateway creates exec-approvals.json at Tier 2+ for its own state tracking)
 if [ -f "$APPROVALS_HOME" ]; then
   chown root:openclaw "$APPROVALS_HOME"
   chmod 660 "$APPROVALS_HOME"
-  chown root:openclaw "$(dirname "$APPROVALS_HOME")"
-  chmod 750 "$(dirname "$APPROVALS_HOME")"
-  echo "[entrypoint] Exec-approvals hardened (root:openclaw 660, dir 750)"
 fi
+# Always set dir permissions — gateway needs write access even at Tier 2+
+# to create/update exec-approvals.json for runtime state tracking
+chown root:openclaw "$(dirname "$APPROVALS_HOME")"
+chmod 770 "$(dirname "$APPROVALS_HOME")"
+echo "[entrypoint] Exec-approvals dir: root:openclaw 770 (gateway can create files)"
 
 # -----------------------------------------------------------------------------
 # 4. Build config from environment variables (always regenerate)
