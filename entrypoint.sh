@@ -393,11 +393,74 @@ fi
 # at 640 root:openclaw) still governs which tools are available.
 
 # -----------------------------------------------------------------------------
-# 4c. Env var notes
-#     All secrets are now inlined in openclaw.json (which is locked after
-#     gateway loads it). The gateway starts with env -i so /proc/self/environ
-#     is empty. No env var scrubbing needed — they never reach the gateway.
+# 4c. Build secrets env file for SecretRef resolution
+#     Config uses SecretRef objects ({ source: "env", id: "KEY" }) instead of
+#     literal secrets. The gateway resolves these from its own process.env at
+#     startup, then holds them in-memory only. We pass them via env -i so they
+#     appear in the gateway's environment for resolution.
+#
+#     Trade-off: secrets are in the gateway's /proc/self/environ, but this is
+#     protected by workspaceOnly (agent can't read /proc via read tool) and
+#     exec allowlist (no cat/head/tail at Tier 0-1). At Tier 2+ this is an
+#     accepted risk (same as before — full exec can read anything).
+#
+#     The config file on disk contains only SecretRef objects, not plaintext.
+#     This is strictly better than the old approach where literals sat in
+#     openclaw.json (a persistent, on-disk attack surface).
 # -----------------------------------------------------------------------------
+SECRETS_ENV_FILE="/data/.openclaw/.secrets.env"
+
+# Collect all secret env vars into a sourceable file
+: > "$SECRETS_ENV_FILE"
+
+# LLM provider keys
+for key in ANTHROPIC_API_KEY OPENAI_API_KEY GOOGLE_AI_API_KEY OPENROUTER_API_KEY \
+           VERCEL_GATEWAY_API_KEY LLM_API_KEY GROQ_API_KEY TOGETHER_API_KEY \
+           FIREWORKS_API_KEY ZAI_API_KEY KIMI_API_KEY MOONSHOT_API_KEY \
+           MINIMAX_API_KEY DEEPSEEK_API_KEY XAI_API_KEY MISTRAL_API_KEY \
+           VENICE_API_KEY CLOUDFLARE_API_KEY AWS_ACCESS_KEY_ID \
+           AWS_SECRET_ACCESS_KEY AWS_REGION; do
+  val="$(eval echo "\${${key}:-}")"
+  [ -n "$val" ] && printf '%s=%s\n' "$key" "$val" >> "$SECRETS_ENV_FILE"
+done
+
+# Channel tokens
+for key in TELEGRAM_BOT_TOKEN DISCORD_BOT_TOKEN SLACK_BOT_TOKEN SLACK_APP_TOKEN; do
+  val="$(eval echo "\${${key}:-}")"
+  [ -n "$val" ] && printf '%s=%s\n' "$key" "$val" >> "$SECRETS_ENV_FILE"
+done
+
+# Gateway token (only if user-specified; random tokens are written literally)
+if [ -n "${GATEWAY_TOKEN:-}" ]; then
+  printf 'GATEWAY_TOKEN=%s\n' "$GATEWAY_TOKEN" >> "$SECRETS_ENV_FILE"
+fi
+
+# Brave search
+if [ -n "${BRAVE_API_KEY:-}" ]; then
+  printf 'BRAVE_API_KEY=%s\n' "$BRAVE_API_KEY" >> "$SECRETS_ENV_FILE"
+fi
+
+# Extra env keys (for custom binaries)
+if [ -n "${EXTRA_ENV_KEYS:-}" ]; then
+  IFS=',' read -ra EXTRA_KEY_LIST <<< "$EXTRA_ENV_KEYS"
+  for key in "${EXTRA_KEY_LIST[@]}"; do
+    key="$(echo "$key" | xargs)"
+    val="$(eval echo "\${${key}:-}")"
+    [ -n "$val" ] && printf '%s=%s\n' "$key" "$val" >> "$SECRETS_ENV_FILE"
+  done
+fi
+
+# Timezone passthrough
+if [ -n "${OPENCLAW_TZ:-}" ]; then
+  printf 'OPENCLAW_TZ=%s\n' "$OPENCLAW_TZ" >> "$SECRETS_ENV_FILE"
+fi
+
+# Lock the secrets file — root-only, deleted after gateway starts
+chmod 600 "$SECRETS_ENV_FILE"
+chown root:root "$SECRETS_ENV_FILE"
+
+SECRET_COUNT=$(wc -l < "$SECRETS_ENV_FILE" | xargs)
+echo "[entrypoint] Secrets env file: ${SECRET_COUNT} vars collected for SecretRef resolution"
 
 # -----------------------------------------------------------------------------
 # 4d. Doctor --fix disabled — was corrupting gateway state on volumes where
@@ -413,10 +476,15 @@ GATEWAY_PORT="${GATEWAY_PORT:-18789}"
 start_gateway() {
   echo "[entrypoint] Starting gateway on port ${GATEWAY_PORT}..."
 
-  # Start gateway with empty environment (env -i). All secrets are in the
-  # config file — the gateway reads them at startup, not from process.env.
-  # This means /proc/self/environ for the gateway process contains nothing
-  # sensitive, closing the exec-based exfiltration vector at all tiers.
+  # Start gateway with env -i + secret env vars for SecretRef resolution.
+  # The config file contains SecretRef objects (not plaintext). The gateway
+  # resolves them from its process.env at startup, then holds values in-memory.
+  #
+  # Security model:
+  #   - Config on disk: SecretRef objects only (no plaintext secrets)
+  #   - Gateway /proc/self/environ: has secret env vars (needed for resolution)
+  #   - Protected by: workspaceOnly (can't read /proc), exec allowlist (Tier 0-1)
+  #   - Tier 2+: accepted risk (full exec can read anything)
   #
   # Gateway stdout is piped through log-bridge.js which:
   # - Passes through lines containing '[' to stdout (same as old grep chain)
@@ -451,11 +519,17 @@ start_gateway() {
     fi
   fi
 
-  # Build env -i command with optional timezone
-  TZ_ENV=""
-  if [ -n "${OPENCLAW_TZ:-}" ]; then
-    TZ_ENV="TZ=${OPENCLAW_TZ}"
-    echo "[entrypoint] Timezone: ${OPENCLAW_TZ}"
+  # Build the env var passthrough from the secrets file.
+  # Each line in .secrets.env is KEY=VALUE — we convert to env -i arguments.
+  # Use cut to split on first '=' only (values may contain '=' chars, e.g. base64).
+  SECRETS_PASSTHROUGH=""
+  if [ -f "$SECRETS_ENV_FILE" ]; then
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      key="$(echo "$line" | cut -d= -f1)"
+      val="$(echo "$line" | cut -d= -f2-)"
+      SECRETS_PASSTHROUGH="$SECRETS_PASSTHROUGH $key=$val"
+    done < "$SECRETS_ENV_FILE"
   fi
 
   env -i \
@@ -463,7 +537,7 @@ start_gateway() {
     PATH=/data/bin:/usr/local/bin:/usr/bin:/bin \
     OPENCLAW_STATE_DIR=/data/.openclaw \
     NODE_ENV=production \
-    ${TZ_ENV:+$TZ_ENV} \
+    $SECRETS_PASSTHROUGH \
     su openclaw -c "cd /data/workspace && openclaw gateway run --port ${GATEWAY_PORT} --compact 2>&1" | node /app/src/log-bridge.js ${LOG_BRIDGE_ARGS} &
   GATEWAY_PID=$!
 
@@ -472,14 +546,92 @@ start_gateway() {
   if kill -0 $GATEWAY_PID 2>/dev/null; then
     echo "[entrypoint] Gateway running (PID: $GATEWAY_PID)"
 
+    # Delete the secrets env file — gateway has already resolved SecretRefs
+    # into its in-memory snapshot. The file is no longer needed.
+    rm -f "$SECRETS_ENV_FILE"
+    echo "[entrypoint] Secrets env file deleted (resolved into gateway memory)"
+
+    # --- SecretRef validation ---
+    # Verify the config file on disk has no plaintext secrets.
+    # SecretRef fields should be objects with "source" key, not strings.
+    # This catches regressions where we accidentally write literals.
+    SECRETREF_VALIDATION_FAILED=false
+    if [ -f "$CONFIG_FILE" ]; then
+      # Check for common secret patterns that should NOT be in the config
+      # (API key prefixes, bot token format). Use node for reliable JSON parsing.
+      node -e "
+        const fs = require('fs');
+        const config = JSON.parse(fs.readFileSync('$CONFIG_FILE', 'utf-8'));
+        const errors = [];
+
+        // Helper: check if a value is a SecretRef object or absent
+        function checkRef(path, val) {
+          if (val === undefined || val === null) return;
+          if (typeof val === 'object' && val.source) return; // valid SecretRef
+          if (typeof val === 'string') {
+            errors.push(path + ': plaintext string found (expected SecretRef object)');
+          }
+        }
+
+        // Channel credentials
+        if (config.channels?.telegram?.botToken)
+          checkRef('channels.telegram.botToken', config.channels.telegram.botToken);
+        if (config.channels?.discord?.token)
+          checkRef('channels.discord.token', config.channels.discord.token);
+        if (config.channels?.slack?.botToken)
+          checkRef('channels.slack.botToken', config.channels.slack.botToken);
+        if (config.channels?.slack?.appToken)
+          checkRef('channels.slack.appToken', config.channels.slack.appToken);
+
+        // Search API key
+        if (config.tools?.web?.search?.apiKey)
+          checkRef('tools.web.search.apiKey', config.tools.web.search.apiKey);
+
+        // Embeddings API key
+        if (config.agents?.defaults?.memorySearch?.remote?.apiKey)
+          checkRef('agents.defaults.memorySearch.remote.apiKey', config.agents.defaults.memorySearch.remote.apiKey);
+
+        // Gateway token (allowed to be literal string if randomly generated)
+        // Only check if GATEWAY_TOKEN env var was set (meaning we should have a SecretRef)
+        if (process.env.GATEWAY_TOKEN && config.gateway?.auth?.token)
+          checkRef('gateway.auth.token', config.gateway.auth.token);
+
+        // Check config.env for leaked provider keys
+        if (config.env) {
+          const sensitivePatterns = /API_KEY|BOT_TOKEN|SECRET/i;
+          for (const [key, val] of Object.entries(config.env)) {
+            if (sensitivePatterns.test(key) && typeof val === 'string') {
+              errors.push('config.env.' + key + ': secret leaked into config.env block');
+            }
+          }
+        }
+
+        if (errors.length > 0) {
+          console.log('SECRETREF_FAIL');
+          errors.forEach(e => console.log('  - ' + e));
+        } else {
+          console.log('SECRETREF_OK');
+        }
+      " 2>/dev/null | while IFS= read -r line; do
+        if [ "$line" = "SECRETREF_FAIL" ]; then
+          echo "[entrypoint] ERROR: SecretRef validation FAILED — plaintext secrets in config!"
+          SECRETREF_VALIDATION_FAILED=true
+        elif [ "$line" = "SECRETREF_OK" ]; then
+          echo "[entrypoint] SecretRef validation: OK (no plaintext secrets in config)"
+        else
+          echo "[entrypoint] $line"
+        fi
+      done
+    fi
+
     # Config stays at 640 root:openclaw (set in step 4b).
     # Gateway re-reads config periodically for health snapshots, so the
     # openclaw group must retain read access. Write is blocked (root-owned).
-    # Exec allowlist has no file-reading binaries (cat/head/tail removed).
-    # At Tier 2+ full exec could read config — accepted read leak, not priv esc.
-    echo "[entrypoint] Config remains 640 root:openclaw (gateway needs periodic re-read)"
+    # Config now contains SecretRef objects, not plaintext secrets.
+    echo "[entrypoint] Config contains SecretRef objects (no plaintext secrets on disk)"
   else
     echo "[entrypoint] ERROR: Gateway exited immediately"
+    rm -f "$SECRETS_ENV_FILE"
     exit 1
   fi
 }

@@ -3,11 +3,24 @@
  *
  * This script reads environment variables and generates openclaw.json
  * with secure defaults and user-specified settings.
+ *
+ * Credentials use SecretRef objects where supported (v2026.2.26+, expanded
+ * in v2026.3.3 via PR #29580). The gateway resolves these at startup from
+ * the entrypoint's environment, then holds them in-memory only. The config
+ * file on disk never contains plaintext secrets for SecretRef-capable fields.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+
+/**
+ * Create a SecretRef object that tells the gateway to resolve a secret
+ * from an environment variable at startup.
+ */
+function secretRef(envVar) {
+  return { source: 'env', provider: 'default', id: envVar };
+}
 
 const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || '/data/.openclaw/openclaw.json';
 const DEFAULTS_PATH = '/app/config/defaults.json';
@@ -121,7 +134,7 @@ function configureEmbeddings(config) {
       model: model,
       remote: {
         baseUrl: 'https://openrouter.ai/api/v1',
-        apiKey: process.env.OPENROUTER_API_KEY,
+        apiKey: secretRef('OPENROUTER_API_KEY'),
       },
     };
     console.log(`[build-config] Embeddings: configured via OpenRouter (model: ${model})`);
@@ -242,7 +255,7 @@ function buildConfig() {
     config.tools.web = config.tools.web || {};
     config.tools.web.search = {
       provider: 'brave',
-      apiKey: process.env.BRAVE_API_KEY,
+      apiKey: secretRef('BRAVE_API_KEY'),
     };
     // Opt-in LLM-grounded snippets mode (v2026.3.8+)
     if (process.env.BRAVE_SEARCH_MODE === 'llm-context') {
@@ -284,7 +297,7 @@ function buildConfig() {
   if (process.env.TELEGRAM_BOT_TOKEN) {
     config.channels.telegram = config.channels.telegram || {};
     config.channels.telegram.enabled = true;
-    config.channels.telegram.botToken = process.env.TELEGRAM_BOT_TOKEN;
+    config.channels.telegram.botToken = secretRef('TELEGRAM_BOT_TOKEN');
 
     if (process.env.TELEGRAM_OWNER_ID) {
       const ownerId = parseInt(process.env.TELEGRAM_OWNER_ID, 10);
@@ -318,7 +331,7 @@ function buildConfig() {
   if (process.env.DISCORD_BOT_TOKEN) {
     config.channels.discord = config.channels.discord || {};
     config.channels.discord.enabled = true;
-    config.channels.discord.token = process.env.DISCORD_BOT_TOKEN;
+    config.channels.discord.token = secretRef('DISCORD_BOT_TOKEN');
 
     if (process.env.DISCORD_OWNER_ID) {
       config.channels.discord.dm = config.channels.discord.dm || {};
@@ -336,10 +349,10 @@ function buildConfig() {
   if (process.env.SLACK_BOT_TOKEN) {
     config.channels.slack = config.channels.slack || {};
     config.channels.slack.enabled = true;
-    config.channels.slack.botToken = process.env.SLACK_BOT_TOKEN;
+    config.channels.slack.botToken = secretRef('SLACK_BOT_TOKEN');
 
     if (process.env.SLACK_APP_TOKEN) {
-      config.channels.slack.appToken = process.env.SLACK_APP_TOKEN;
+      config.channels.slack.appToken = secretRef('SLACK_APP_TOKEN');
     }
 
     if (process.env.SLACK_OWNER_ID) {
@@ -358,24 +371,29 @@ function buildConfig() {
   config.gateway.bind = 'loopback';
   config.gateway.auth = config.gateway.auth || {};
 
-  const gatewayToken = process.env.GATEWAY_TOKEN || crypto.randomUUID();
   config.gateway.auth.mode = 'token';
-  config.gateway.auth.token = gatewayToken;
+  if (process.env.GATEWAY_TOKEN) {
+    config.gateway.auth.token = secretRef('GATEWAY_TOKEN');
+  } else {
+    // No env var to reference — generate a random token and write it literally.
+    // This is acceptable: gateway tokens are internal (loopback-only) and not
+    // a high-value secret. A SecretRef requires a stable env var to resolve.
+    config.gateway.auth.token = crypto.randomUUID();
+  }
 
   // Required for headless start
   config.gateway.mode = 'local';
 
-  // --- Provider Keys in Config ---
-  // Inject provider API keys into config's env block so the gateway reads them
-  // from the config file rather than process.env. This allows the entrypoint to
-  // start the gateway with env -i (empty environment), closing the
-  // /proc/self/environ exfiltration vector at all tiers.
+  // --- Provider Keys ---
+  // LLM provider keys are passed to the gateway via env -i passthrough (from
+  // the entrypoint's .secrets.env file). The gateway reads them from its own
+  // process.env at startup. We no longer inject them into config.env because:
+  //   1. config.env doesn't support SecretRef — values would be plaintext on disk
+  //   2. The gateway already reads standard provider env vars from process.env
+  //   3. Keeping secrets out of the config file is the whole point of SecretRef
+  //
+  // config.env is still used for non-secret passthrough vars (timezone, etc).
   config.env = config.env || {};
-  for (const key of LLM_PROVIDERS) {
-    if (process.env[key]) {
-      config.env[key] = process.env[key];
-    }
-  }
 
   // --- Custom Binary Trusted Dirs ---
   // When EXEC_EXTRA_COMMANDS is set, declare /data/bin as a trusted directory
@@ -389,25 +407,22 @@ function buildConfig() {
   }
 
   // --- Extra Environment Keys ---
-  // Pass through user-specified env vars (e.g. for custom binaries on the volume).
-  // EXTRA_ENV_KEYS=CORE_URL,CORE_API_KEY → injects those into config.env
+  // Extra env vars (e.g. for custom binaries) are passed via the entrypoint's
+  // .secrets.env file → env -i passthrough. We log which keys were requested
+  // but don't inject values into config.env (they'd be plaintext on disk).
   if (process.env.EXTRA_ENV_KEYS) {
     const extraKeys = process.env.EXTRA_ENV_KEYS.split(',').map(s => s.trim()).filter(Boolean);
     for (const key of extraKeys) {
-      if (process.env[key]) {
-        config.env[key] = process.env[key];
-      } else {
+      if (!process.env[key]) {
         console.log(`[build-config] WARNING: EXTRA_ENV_KEYS lists '${key}' but it is not set`);
       }
     }
-    console.log(`[build-config] Extra env keys injected: ${extraKeys.filter(k => process.env[k]).join(', ') || 'none'}`);
+    console.log(`[build-config] Extra env keys (via env passthrough): ${extraKeys.filter(k => process.env[k]).join(', ') || 'none'}`);
   }
 
   // --- Timezone Override (v2026.3.13+) ---
-  // OPENCLAW_TZ sets the container timezone for cron scheduling and timestamps.
-  // Passed through to the gateway via config.env so it takes effect even with env -i.
+  // OPENCLAW_TZ is passed via the entrypoint's .secrets.env → env -i passthrough.
   if (process.env.OPENCLAW_TZ) {
-    config.env.OPENCLAW_TZ = process.env.OPENCLAW_TZ;
     console.log(`[build-config] Timezone: ${process.env.OPENCLAW_TZ}`);
   }
 
@@ -465,27 +480,13 @@ function main() {
   // Write config with secure permissions
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), { mode: 0o600 });
 
-  // Debug: print full config structure (redact secrets)
+  // Debug: print full config structure
+  // SecretRef fields show as { source: "env", provider: "default", id: "KEY_NAME" }
+  // which is safe to log (it's a reference, not the secret itself).
+  // Only the gateway auth token needs redaction when it's a literal (random UUID).
   const debugConfig = JSON.parse(JSON.stringify(config));
-  for (const ch of Object.values(debugConfig.channels || {})) {
-    if (ch.botToken) ch.botToken = '[REDACTED]';
-    if (ch.token) ch.token = '[REDACTED]';
-    if (ch.appToken) ch.appToken = '[REDACTED]';
-  }
-  if (debugConfig.gateway?.auth?.token) {
-    debugConfig.gateway.auth.token = '[REDACTED]';
-  }
-  if (debugConfig.agents?.defaults?.memorySearch?.remote?.apiKey) {
-    debugConfig.agents.defaults.memorySearch.remote.apiKey = '[REDACTED]';
-  }
-  if (debugConfig.tools?.web?.search?.apiKey) {
-    debugConfig.tools.web.search.apiKey = '[REDACTED]';
-  }
-  // imageModel is not a secret (just a model ID), no redaction needed
-  if (debugConfig.env) {
-    for (const key of Object.keys(debugConfig.env)) {
-      debugConfig.env[key] = '[REDACTED]';
-    }
+  if (debugConfig.gateway?.auth?.token && typeof debugConfig.gateway.auth.token === 'string') {
+    debugConfig.gateway.auth.token = '[REDACTED-RANDOM]';
   }
 
   // Single write to avoid interleaved output with gateway/entrypoint logs
