@@ -31,6 +31,12 @@ if ls /data/bin/* >/dev/null 2>&1; then
   done
 fi
 
+# Symlink media directory into workspace so the image tool can access
+# inbound photos/voice messages. workspaceOnly blocks paths outside
+# /data/workspace/ — this symlink gives the gateway a workspace-valid path.
+# If the gateway resolves symlinks and still blocks, this is a no-op.
+ln -sf /data/.openclaw/media /data/workspace/media
+
 echo "[entrypoint] Data directories ready"
 
 # -----------------------------------------------------------------------------
