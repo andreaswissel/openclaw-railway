@@ -306,4 +306,5 @@ jobs:
             --title "$TITLE" \
             --label "upstream" \
             --label "$STATUS" \
+            --assignee Mattslayga \
             --body-file /tmp/issue-body.md
