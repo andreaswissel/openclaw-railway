@@ -46,6 +46,33 @@ fi
 # Create or refresh the symlink
 ln -sfn /data/workspace/media /data/.openclaw/media
 
+# Copy skills into workspace so the agent can read SKILL.md files under workspaceOnly.
+# The gateway loads skill metadata internally, but the agent needs to read the full
+# SKILL.md for detailed instructions (command syntax, flags, examples). Copies are
+# refreshed every startup so they stay in sync with the installed version.
+mkdir -p /data/workspace/skills
+# Managed skills (e.g. core-edge, installed via clawhub) — copy subdirectories only,
+# skip stray files at the managed skills root level.
+if [ -d "/data/.openclaw/skills" ]; then
+  for skill_dir in /data/.openclaw/skills/*/; do
+    [ -d "$skill_dir" ] || continue
+    skill_name="$(basename "$skill_dir")"
+    mkdir -p "/data/workspace/skills/$skill_name"
+    cp -a "$skill_dir"* "/data/workspace/skills/$skill_name/" 2>/dev/null
+  done
+fi
+# Bundled skills — copy eligible ones whose requirements are met on this container.
+# Use mkdir + cp contents to avoid nesting if dir already exists from managed skills.
+for skill in gog weather healthcheck node-connect skill-creator; do
+  src="/usr/local/lib/node_modules/openclaw/skills/$skill"
+  if [ -d "$src" ]; then
+    mkdir -p "/data/workspace/skills/$skill"
+    cp -a "$src"/* "/data/workspace/skills/$skill/" 2>/dev/null
+  fi
+done
+chown -R openclaw:openclaw /data/workspace/skills
+echo "[entrypoint] Skills copied to workspace ($(ls /data/workspace/skills/ | wc -w) skills)"
+
 echo "[entrypoint] Data directories ready"
 
 # -----------------------------------------------------------------------------
