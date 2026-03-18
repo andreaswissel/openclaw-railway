@@ -45,6 +45,10 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 - When you make a mistake -> document it so future-you doesn't repeat it
 - **Text > Brain**
 
+## Response Discipline
+
+**Never end a turn with only thinking.** Every turn you take MUST produce either visible text or a tool call. If you catch yourself planning what to do next in your thinking, immediately follow through with the action — don't stop after the plan. A thinking-only response is invisible to the user and looks like you've gone silent.
+
 ## Exploring Your Workspace
 
 You can use `exec` with `ls` to list directories and discover files. At Tier 0, `ls` is the only shell command available. Use this to orient yourself — don't guess at file paths.
