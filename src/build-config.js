@@ -17,6 +17,11 @@ import crypto from 'node:crypto';
 /**
  * Create a SecretRef object that tells the gateway to resolve a secret
  * from an environment variable at startup.
+ *
+ * Verified against gateway source (auth-profiles, isSecretRef):
+ *   - `provider` is REQUIRED for the primary code path
+ *   - Without it, falls to isLegacySecretRefWithoutProvider (auto-adds "default")
+ *   - Keeping it explicit avoids the legacy fallback path
  */
 function secretRef(envVar) {
   return { source: 'env', provider: 'default', id: envVar };
