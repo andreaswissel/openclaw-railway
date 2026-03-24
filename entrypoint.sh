@@ -461,7 +461,7 @@ fi
 SECRETS_ENV_FILE="/data/.openclaw/.secrets.env"
 
 # Collect all secret env vars into a sourceable file
-: > "$SECRETS_ENV_FILE"
+install -m 600 /dev/null "$SECRETS_ENV_FILE"
 
 # LLM provider keys
 for key in ANTHROPIC_API_KEY OPENAI_API_KEY GOOGLE_AI_API_KEY OPENROUTER_API_KEY \
