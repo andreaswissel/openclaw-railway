@@ -398,7 +398,12 @@ fi
 # internal state tracking — it will get EACCES but this is non-fatal (the gateway
 # logs a warning and continues). The alternative (770) was overly permissive.
 chown root:openclaw /home/openclaw/.openclaw
-chmod 750 /home/openclaw/.openclaw
+
+if [ "$SECURITY_TIER" = "2" ] || [ "$SECURITY_TIER" = "3" ]; then
+    chmod 770 /home/openclaw/.openclaw
+else
+    chmod 750 /home/openclaw/.openclaw
+fi
 
 if [ -f "$APPROVALS_HOME" ]; then
   chown root:openclaw "$APPROVALS_HOME"
